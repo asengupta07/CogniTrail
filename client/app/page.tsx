@@ -21,9 +21,10 @@ import ReactFlow, {
 } from "reactflow"
 import "reactflow/dist/style.css"
 import { motion, AnimatePresence } from "framer-motion"
-import { ChevronLeft, ChevronRight, Clock, Search, Zap } from "lucide-react"
+import { ChevronLeft, ChevronRight, Clock, Search, Zap, MessageSquare } from "lucide-react"
 import { ZoomSlider } from "@/components/zoom-slider"
-import { formatDate } from '@/lib/utils'
+import { formatDate } from "@/lib/utils"
+import { ChatModal } from "@/components/chat-modal"
 
 interface TreeData {
   title: string
@@ -37,6 +38,7 @@ interface CustomNodeData {
   isRoot?: boolean
   onGenerate?: () => void
   isLoading?: boolean
+  onLearnMore?: () => void
 }
 
 interface ChatHistory {
@@ -69,29 +71,43 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
       {data.summary && (
         <div className={`text-sm mb-3 ${data.isRoot ? "text-white/90" : "text-gray-600"}`}>{data.summary}</div>
       )}
-      {!data.isRoot && data.onGenerate && (
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="px-4 py-2 bg-gradient-to-r from-purple-500 to-violet-600 text-white text-sm rounded-lg 
-                    hover:from-purple-600 hover:to-violet-700 shadow-md flex items-center gap-2
-                    disabled:opacity-70 disabled:cursor-not-allowed"
-          onClick={data.onGenerate}
-          disabled={data.isLoading}
-        >
-          {data.isLoading ? (
-            <>
-              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-              Exploring...
-            </>
-          ) : (
-            <>
-              <Zap size={16} />
-              Explore
-            </>
-          )}
-        </motion.button>
-      )}
+      <div className="flex gap-2">
+        {!data.isRoot && data.onGenerate && (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-violet-600 text-white text-sm rounded-lg 
+                      hover:from-purple-600 hover:to-violet-700 shadow-md flex items-center gap-2
+                      disabled:opacity-70 disabled:cursor-not-allowed"
+            onClick={data.onGenerate}
+            disabled={data.isLoading}
+          >
+            {data.isLoading ? (
+              <>
+                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                Exploring...
+              </>
+            ) : (
+              <>
+                <Zap size={16} />
+                Explore
+              </>
+            )}
+          </motion.button>
+        )}
+        {data.summary && data.onLearnMore && (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white text-sm rounded-lg 
+                      hover:from-teal-600 hover:to-emerald-700 shadow-md flex items-center gap-2"
+            onClick={data.onLearnMore}
+          >
+            <MessageSquare size={16} />
+            Learn More
+          </motion.button>
+        )}
+      </div>
       <Handle
         type="source"
         position={Position.Right}
@@ -121,9 +137,11 @@ export default function LearningTree() {
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([])
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [chatModalOpen, setChatModalOpen] = useState(false)
+  const [currentNodeTitle, setCurrentNodeTitle] = useState("")
   const nodeId = useRef(0)
   const nodesRef = useRef<Node[]>([])
-  const historyUpdateDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const historyUpdateDebounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Update the ref whenever nodes change
   useEffect(() => {
@@ -134,23 +152,22 @@ export default function LearningTree() {
   useEffect(() => {
     const fetchChatHistory = async () => {
       try {
-        const response = await fetch('/api/history');
+        const response = await fetch("/api/history")
         if (!response.ok) {
-          throw new Error('Failed to fetch chat history');
+          throw new Error("Failed to fetch chat history")
         }
-        const data = await response.json();
-        if (data.length === 0)
-          setChatHistory([])
+        const data = await response.json()
+        if (data.length === 0) setChatHistory([])
         else {
-          setChatHistory(data);
+          setChatHistory(data)
         }
       } catch (error) {
-        console.error('Error fetching chat history:', error);
+        console.error("Error fetching chat history:", error)
       }
-    };
+    }
 
-    fetchChatHistory();
-  }, []);
+    fetchChatHistory()
+  }, [])
 
   const getNextId = (parentId?: string) => {
     nodeId.current += 1
@@ -176,17 +193,17 @@ export default function LearningTree() {
   const calculateSubtreeHeight = (data: TreeData): number => {
     // Base height for the current node
     let height = nodeHeight
-    
+
     // If this node has children, add their heights plus spacing
     if (data.keywords && data.keywords.length > 0) {
       height += data.keywords.length * (nodeHeight + verticalSpacing)
     }
-    
+
     return height
   }
 
   const checkNodeCollision = (position: XYPosition, existingNodes: Node[]): boolean => {
-    return existingNodes.some(node => {
+    return existingNodes.some((node) => {
       const dx = Math.abs(position.x - node.position.x)
       const dy = Math.abs(position.y - node.position.y)
       return dx < COLLISION_THRESHOLD && dy < COLLISION_THRESHOLD
@@ -199,6 +216,11 @@ export default function LearningTree() {
       newX += COLLISION_RESOLUTION
     }
     return { x: newX, y: position.y }
+  }
+
+  const handleLearnMore = (nodeTitle: string) => {
+    setCurrentNodeTitle(nodeTitle)
+    setChatModalOpen(true)
   }
 
   const convertToReactFlowElements = (
@@ -219,13 +241,14 @@ export default function LearningTree() {
         label: data.title,
         summary: data.summary,
         isRoot: !parentId,
+        onLearnMore: data.summary ? () => handleLearnMore(data.title) : undefined,
       },
     }
     nodes.push(rootNode)
 
     // Calculate parent node width
     const parentWidth = calculateNodeWidth(rootNode)
-    
+
     // Create child nodes and edges
     const childrenCount = data.keywords.length
     if (childrenCount > 0) {
@@ -310,34 +333,36 @@ export default function LearningTree() {
   )
 
   // Function to update history (now uses useCallback and takes arguments)
-  const updateHistory = useCallback(async (historyId: string, nodesToSave: Node[], edgesToSave: Edge[]) => {
-    if (!historyId) return; // Safety check
+  const updateHistory = useCallback(
+    async (historyId: string, nodesToSave: Node[], edgesToSave: Edge[]) => {
+      if (!historyId) return // Safety check
 
-    try {
-      console.log(`Attempting to update history ${historyId}`);
-      const response = await fetch('/api/history/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ historyId, nodes: nodesToSave, edges: edgesToSave }),
-      });
+      try {
+        console.log(`Attempting to update history ${historyId}`)
+        const response = await fetch("/api/history/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ historyId, nodes: nodesToSave, edges: edgesToSave }),
+        })
 
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`Failed to update chat history: ${response.status} ${errorBody}`);
-      }
+        if (!response.ok) {
+          const errorBody = await response.text()
+          throw new Error(`Failed to update chat history: ${response.status} ${errorBody}`)
+        }
 
-      // Update local chat history state optimistically
-      setChatHistory((prev) =>
-        prev.map((item) =>
-          item._id === historyId ? { ...item, nodes: nodesToSave, edges: edgesToSave } : item
+        // Update local chat history state optimistically
+        setChatHistory((prev) =>
+          prev.map((item) => (item._id === historyId ? { ...item, nodes: nodesToSave, edges: edgesToSave } : item)),
         )
-      );
-      console.log(`History ${historyId} updated successfully locally.`);
-    } catch (err) { // Make sure 'err' is typed correctly if needed, e.g., catch (err: any)
-      console.error("Error updating history:", err);
-      setError(`Failed to save changes: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }, [setChatHistory, setError]); // Added setError dependency
+        console.log(`History ${historyId} updated successfully locally.`)
+      } catch (err) {
+        // Make sure 'err' is typed correctly if needed, e.g., catch (err: any)
+        console.error("Error updating history:", err)
+        setError(`Failed to save changes: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    },
+    [setChatHistory, setError],
+  ) // Added setError dependency
 
   const generateTreeForNode = async (parentNodeId: string, topic: string) => {
     setLoading(true)
@@ -348,11 +373,7 @@ export default function LearningTree() {
 
       // Update the parent node to show loading state
       setNodes((nds) =>
-        nds.map((node) =>
-          node.id === parentNodeId
-            ? { ...node, data: { ...node.data, isLoading: true } }
-            : node
-        )
+        nds.map((node) => (node.id === parentNodeId ? { ...node, data: { ...node.data, isLoading: true } } : node)),
       )
 
       const response = await fetch("/api/initTree", {
@@ -392,43 +413,38 @@ export default function LearningTree() {
           summary: data.summary,
           onGenerate: undefined,
           isLoading: false,
+          onLearnMore: () => handleLearnMore(data.title),
         },
       }
 
       // Set the nodes and edges with animation delay
       setTimeout(() => {
-        let finalNodes: Node[] = [];
+        let finalNodes: Node[] = []
         setNodes((nds) => {
           const filteredNodes = nds.filter((n) => n.id !== parentNodeId)
-          finalNodes = [...filteredNodes, updatedParentNode, ...newNodes.filter((n) => n.id !== parentNodeId)];
-          return finalNodes;
+          finalNodes = [...filteredNodes, updatedParentNode, ...newNodes.filter((n) => n.id !== parentNodeId)]
+          return finalNodes
         })
 
-        let finalEdges: Edge[] = [];
+        let finalEdges: Edge[] = []
         setEdges((eds) => {
-            finalEdges = [...eds, ...newEdges];
-            return finalEdges;
-        });
+          finalEdges = [...eds, ...newEdges]
+          return finalEdges
+        })
 
         // Update history after state updates are likely processed
         setTimeout(() => {
           if (currentHistoryId) {
-            updateHistory(currentHistoryId, finalNodes, finalEdges);
+            updateHistory(currentHistoryId, finalNodes, finalEdges)
           }
-        }, 0);
-
+        }, 0)
       }, 300)
-
     } catch (err) {
       console.error("Error fetching data:", err)
       setError("Failed to generate the learning tree. Please try again.")
       // Reset loading state on error
       setNodes((nds) =>
-        nds.map((node) =>
-          node.id === parentNodeId
-            ? { ...node, data: { ...node.data, isLoading: false } }
-            : node
-        )
+        nds.map((node) => (node.id === parentNodeId ? { ...node, data: { ...node.data, isLoading: false } } : node)),
       )
     } finally {
       setLoading(false)
@@ -466,10 +482,10 @@ export default function LearningTree() {
       const { nodes, edges } = convertToReactFlowElements(data)
 
       // Save to chat history
-      const saveResponse = await fetch('/api/history/save', {
-        method: 'POST',
+      const saveResponse = await fetch("/api/history/save", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           topic,
@@ -479,13 +495,13 @@ export default function LearningTree() {
       })
 
       if (!saveResponse.ok) {
-        throw new Error('Failed to save chat history')
+        throw new Error("Failed to save chat history")
       }
 
       // Update local chat history
       const newHistoryItem = await saveResponse.json()
       setChatHistory((prev) => [newHistoryItem, ...prev])
-      setCurrentHistoryId(newHistoryItem._id); // Set the current history ID
+      setCurrentHistoryId(newHistoryItem._id) // Set the current history ID
 
       // Close modal and set the nodes and edges
       setShowModal(false)
@@ -507,31 +523,32 @@ export default function LearningTree() {
 
   const loadHistoryItem = async (historyId: string) => {
     try {
-      const historyItem = chatHistory.find(item => item._id === historyId)
+      const historyItem = chatHistory.find((item) => item._id === historyId)
       if (!historyItem) return
 
       setTopic(historyItem.topic)
-      
+
       // Add onGenerate function to unexplored nodes
-      const nodesWithGenerate = historyItem.nodes.map(node => {
+      const nodesWithGenerate = historyItem.nodes.map((node) => {
         // A node is unexplored if it has no summary and is not the root node
-        const isUnexplored = !node.data.summary && !node.data.isRoot;
+        const isUnexplored = !node.data.summary && !node.data.isRoot
         return {
           ...node,
           data: {
             ...node.data,
-            onGenerate: isUnexplored ? () => generateTreeForNode(node.id, node.data.label) : undefined
-          }
-        };
-      });
+            onGenerate: isUnexplored ? () => generateTreeForNode(node.id, node.data.label) : undefined,
+            onLearnMore: node.data.summary ? () => handleLearnMore(node.data.label) : undefined,
+          },
+        }
+      })
 
       setNodes(nodesWithGenerate)
       setEdges(historyItem.edges)
       setShowModal(false)
-      setCurrentHistoryId(historyItem._id); // Set the current history ID when loading
+      setCurrentHistoryId(historyItem._id) // Set the current history ID when loading
     } catch (error) {
-      console.error('Error loading history item:', error)
-      setError('Failed to load history item')
+      console.error("Error loading history item:", error)
+      setError("Failed to load history item")
     }
   }
 
@@ -540,30 +557,28 @@ export default function LearningTree() {
     if (currentHistoryId) {
       // Nodes or edges changed while viewing a specific history item
       if (historyUpdateDebounceTimerRef.current) {
-        clearTimeout(historyUpdateDebounceTimerRef.current);
+        clearTimeout(historyUpdateDebounceTimerRef.current)
       }
-      console.log("Change detected, scheduling history update for:", currentHistoryId); // Add log
+      console.log("Change detected, scheduling history update for:", currentHistoryId) // Add log
       historyUpdateDebounceTimerRef.current = setTimeout(() => {
-        console.log("Debounced timer fired. Updating history for:", currentHistoryId); // Add log
+        console.log("Debounced timer fired. Updating history for:", currentHistoryId) // Add log
         // Pass the current state values and the ID
         // 'nodes' and 'edges' here will be the latest state values when the timeout executes
-        updateHistory(currentHistoryId, nodes, edges);
-      }, 1500); // Use 1.5 seconds debounce
+        updateHistory(currentHistoryId, nodes, edges)
+      }, 1500) // Use 1.5 seconds debounce
     }
 
     return () => {
       // Cleanup timer on unmount or before next run
       if (historyUpdateDebounceTimerRef.current) {
         // console.log("Cleaning up debounce timer"); // Optional log
-        clearTimeout(historyUpdateDebounceTimerRef.current);
+        clearTimeout(historyUpdateDebounceTimerRef.current)
       }
-    };
-  }, [nodes, edges, currentHistoryId, updateHistory]); // Dependencies
+    }
+  }, [nodes, edges, currentHistoryId, updateHistory]) // Dependencies
 
   // Add this function to filter chat history based on search term
-  const filteredChatHistory = chatHistory.filter(item => 
-    item.topic.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredChatHistory = chatHistory.filter((item) => item.topic.toLowerCase().includes(searchTerm.toLowerCase()))
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -666,7 +681,7 @@ export default function LearningTree() {
           >
             <Controls className="bg-white shadow-md rounded-lg border border-gray-200" />
             <Background color="#9333ea" gap={24} size={1} />
-            <ZoomSlider position="bottom-right"/>
+            <ZoomSlider position="bottom-right" />
             <Panel
               position="top-center"
               className="bg-white/80 backdrop-blur-sm p-3 rounded-lg shadow-md border border-gray-200"
@@ -717,18 +732,15 @@ export default function LearningTree() {
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
 
                 <div className="text-center mb-6">
                   <h2 className="text-3xl font-bold text-gray-800 mb-2">Generate a CogniTrail Map</h2>
-                  <p className="text-gray-600">Enter a topic you want to explore, and have fun going down the rabbit hole!</p>
+                  <p className="text-gray-600">
+                    Enter a topic you want to explore, and have fun going down the rabbit hole!
+                  </p>
                 </div>
 
                 <div className="relative">
@@ -787,6 +799,13 @@ export default function LearningTree() {
                 )}
               </motion.div>
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Chat Modal */}
+        <AnimatePresence>
+          {chatModalOpen && (
+            <ChatModal isOpen={chatModalOpen} onClose={() => setChatModalOpen(false)} nodeTitle={currentNodeTitle} />
           )}
         </AnimatePresence>
       </div>

@@ -49,8 +49,13 @@ const generateWithRetry = async (prompt: string, article: string, maxRetries: nu
 
     while (retryCount < maxRetries) {
         try {
-            const clippedArticle = clipArticle(article, currentMaxTokens);
-            const fullPrompt = prompt.replace('${article}', clippedArticle);
+            let fullPrompt = prompt;
+            if (retryCount > 0) {
+                const clippedArticle = clipArticle(article, currentMaxTokens);
+                fullPrompt = prompt.replace('{article}', clippedArticle);
+            } else {
+                fullPrompt = prompt.replace('{article}', article);
+            }
             const res = await generateAlt(fullPrompt);
             if (!res) return {};
             return parseUntilJson(res);
@@ -146,7 +151,7 @@ export async function getNodeWithChildren(query: string): Promise<Record<string,
         }
 
         ARTICLE:
-        ${article}`;
+        {article}`;
 
         const res = await retryOperation(() => generateWithRetry(prompt, article));
         const node = {
