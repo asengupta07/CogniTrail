@@ -15,6 +15,12 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    if (body.nodes.length === 0 || body.edges.length === 0) {
+      return NextResponse.json(
+        { error: 'Nodes or edges are empty' },
+        { status: 400 }
+      );
+    }
 
     // Format nodes and edges for MongoDB
     const formattedNodes = formatNodesForMongoDB(body.nodes);

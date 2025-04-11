@@ -39,6 +39,7 @@ interface CustomNodeData {
   onGenerate?: () => void
   isLoading?: boolean
   onLearnMore?: () => void
+  isExploring?: boolean
 }
 
 interface ChatHistory {
@@ -80,7 +81,7 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
                       hover:from-purple-600 hover:to-violet-700 shadow-md flex items-center gap-2
                       disabled:opacity-70 disabled:cursor-not-allowed"
             onClick={data.onGenerate}
-            disabled={data.isLoading}
+            disabled={data.isLoading || data.isExploring}
           >
             {data.isLoading ? (
               <>
@@ -130,6 +131,7 @@ export default function LearningTree() {
   const [showModal, setShowModal] = useState(true)
   const [topic, setTopic] = useState("")
   const [loading, setLoading] = useState(false)
+  const [isExploring, setIsExploring] = useState(false)
   const [nodes, setNodes, onNodesState] = useNodesState([])
   const [edges, setEdges, onEdgesState] = useEdgesState([])
   const [error, setError] = useState<string | null>(null)
@@ -196,7 +198,7 @@ export default function LearningTree() {
 
     // If this node has children, add their heights plus spacing
     if (data.keywords && data.keywords.length > 0) {
-      height += data.keywords.length * (nodeHeight + verticalSpacing)
+      height += data.keywords.length * (nodeHeight + verticalSpacing) - verticalSpacing
     }
 
     return height
@@ -275,6 +277,7 @@ export default function LearningTree() {
           data: {
             label: keyword,
             onGenerate: () => generateTreeForNode(childNodeId, keyword),
+            isExploring: isExploring,
           },
         }
 
@@ -347,7 +350,11 @@ export default function LearningTree() {
 
         if (!response.ok) {
           const errorBody = await response.text()
-          throw new Error(`Failed to update chat history: ${response.status} ${errorBody}`)
+          if (errorBody.includes("Nodes or edges are empty")) {
+            console.log("Nodes or edges are empty, skipping update")
+          } else {
+            throw new Error(`Failed to update chat history: ${response.status} ${errorBody}`)
+          }
         }
 
         // Update local chat history state optimistically
@@ -365,6 +372,8 @@ export default function LearningTree() {
   ) // Added setError dependency
 
   const generateTreeForNode = async (parentNodeId: string, topic: string) => {
+    if (isExploring) return; // Prevent multiple explorations
+    setIsExploring(true);
     setLoading(true)
     setError(null)
 
@@ -448,6 +457,7 @@ export default function LearningTree() {
       )
     } finally {
       setLoading(false)
+      setIsExploring(false); // Reset exploration state
     }
   }
 
@@ -538,6 +548,7 @@ export default function LearningTree() {
             ...node.data,
             onGenerate: isUnexplored ? () => generateTreeForNode(node.id, node.data.label) : undefined,
             onLearnMore: node.data.summary ? () => handleLearnMore(node.data.label) : undefined,
+            isExploring: isExploring,
           },
         }
       })

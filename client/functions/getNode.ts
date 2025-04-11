@@ -23,7 +23,7 @@ const getWikipediaTopic = async (query: string): Promise<string> => {
     The response must be valid JSON that can be parsed without errors. There should be no text before or after the JSON object.
     
     The response JSON is:`;
-    const res = await generate(prompt);
+    const res = await generateAlt(prompt);
     if (!res)
         return "";
     const topic = parseUntilJson(res);
