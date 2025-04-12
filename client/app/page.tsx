@@ -729,21 +729,22 @@ export default function LearningTree() {
             <ZoomSlider position="bottom-right" />
             <Panel
               position="top-center"
-              className="bg-white/80 backdrop-blur-sm p-3 rounded-lg shadow-md border border-gray-200"
+              className="bg-white/80 backdrop-blur-sm p-2 sm:p-3 rounded-lg shadow-md border border-gray-200"
             >
-              <h1 className="text-xl font-bold text-gray-800">CogniTrail Explorer</h1>
+              <h1 className="text-md sm:text-xl font-bold text-gray-800">CogniTrail Explorer</h1>
             </Panel>
             <Panel
               position="bottom-center"
-              className="bg-white/80 backdrop-blur-sm p-2 rounded-lg shadow-md border border-gray-200"
+              className="bg-white/80 backdrop-blur-sm p-1.5 sm:p-2 rounded-lg shadow-md border border-gray-200"
             >
               <button
                 onClick={() => setShowModal(true)}
-                className="px-4 py-2 bg-gradient-to-r from-purple-500 to-violet-600 text-white rounded-lg 
-                          hover:from-purple-600 hover:to-violet-700 shadow-md flex items-center gap-2"
+                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-purple-500 to-violet-600 text-white rounded-lg 
+                          hover:from-purple-600 hover:to-violet-700 shadow-md flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base"
               >
-                <Search size={16} />
-                Explore New Topic
+                <Search size={14} className="sm:w-4 sm:h-4 w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Explore New Topic</span>
+                <span className="sm:hidden">Explore</span>
               </button>
             </Panel>
           </ReactFlow>
@@ -756,23 +757,23 @@ export default function LearningTree() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
             >
               <motion.div
                 initial={{ scale: 0.9, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.9, y: 20 }}
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full mx-4 relative"
+                className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 max-w-2xl w-full relative"
               >
                 <button
                   onClick={() => setShowModal(false)}
-                  className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  className="absolute top-2 right-2 sm:top-4 sm:right-4 p-1.5 sm:p-2 rounded-full hover:bg-gray-100 transition-colors"
                   aria-label="Close modal"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-gray-500"
+                    className="h-5 w-5 sm:h-6 sm:w-6 text-gray-500"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -781,9 +782,9 @@ export default function LearningTree() {
                   </svg>
                 </button>
 
-                <div className="text-center mb-6">
-                  <h2 className="text-3xl font-bold text-gray-800 mb-2">Generate a CogniTrail Map</h2>
-                  <p className="text-gray-600">
+                <div className="text-center mb-4 sm:mb-6">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-1 sm:mb-2">Generate a CogniTrail Map</h2>
+                  <p className="text-sm sm:text-base text-gray-600">
                     Enter a topic you want to explore, and have fun going down the rabbit hole!
                   </p>
                 </div>
@@ -795,7 +796,7 @@ export default function LearningTree() {
                     onChange={(e) => setTopic(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="e.g., Machine Learning, Quantum Physics, Climate Change..."
-                    className="w-full px-5 py-4 text-lg border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-3 sm:px-5 sm:py-4 text-base sm:text-lg border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     autoFocus
                   />
 
@@ -804,19 +805,19 @@ export default function LearningTree() {
                     whileTap={{ scale: 0.95 }}
                     onClick={handleGenerateTree}
                     disabled={loading}
-                    className="mt-6 w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-violet-600 text-white text-lg font-medium rounded-xl 
+                    className="mt-4 sm:mt-6 w-full px-4 py-3 sm:px-6 sm:py-4 bg-gradient-to-r from-purple-500 to-violet-600 text-white text-base sm:text-lg font-medium rounded-xl 
                               hover:from-purple-600 hover:to-violet-700 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed
                               flex items-center justify-center gap-2"
                   >
                     {loading ? (
                       <>
-                        <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-                        Generating...
+                        <div className="animate-spin h-4 w-4 sm:h-5 sm:w-5 border-2 border-white border-t-transparent rounded-full" />
+                        <span className="text-sm sm:text-base">Generating...</span>
                       </>
                     ) : (
                       <>
-                        <Zap size={20} />
-                        Generate Learning Tree
+                        <Zap size={16} className="sm:w-5 sm:h-5" />
+                        <span className="text-sm sm:text-base">Generate Learning Tree</span>
                       </>
                     )}
                   </motion.button>
@@ -826,17 +827,17 @@ export default function LearningTree() {
                   <motion.p
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-4 text-red-500 text-center"
+                    className="mt-3 sm:mt-4 text-sm sm:text-base text-red-500 text-center"
                   >
                     {error}
                   </motion.p>
                 )}
 
                 {nodes.length > 0 && (
-                  <div className="mt-4 text-center">
+                  <div className="mt-3 sm:mt-4 text-center">
                     <button
                       onClick={() => setShowModal(false)}
-                      className="text-purple-600 hover:text-purple-800 font-medium"
+                      className="text-sm sm:text-base text-purple-600 hover:text-purple-800 font-medium"
                     >
                       Return to current tree
                     </button>
