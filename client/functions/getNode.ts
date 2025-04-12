@@ -2,11 +2,17 @@ import { generate, generateAlt } from "../lib/genai";
 import { parseUntilJson } from "../lib/parseUntilJson";
 
 
-const getWikipediaTopic = async (query: string): Promise<string> => {
-    const prompt = `You are an expert on wikipedia articles. You are given a query and you need to return the wikipedia topic that is most relevant to the query. If the topic cannot be determined, return "false" in the "canBeDetermined" field.
+const getWikipediaTopic = async (query: string, parentTopic?: string, keepTopic: boolean = false): Promise<string> => {
+    if (keepTopic) {
+        return query;
+    }
+    const prompt = `You are an expert on wikipedia articles. You are given a query and a parent topic. You need to return the wikipedia topic that is most relevant to the query and is also related to the parent topic. If the topic cannot be determined, return "false" in the "canBeDetermined" field.
 
     QUERY:
     ${query}
+
+    PARENT TOPIC:
+    ${parentTopic}
 
     OUTPUT JSON FORMAT:
     {
@@ -17,7 +23,7 @@ const getWikipediaTopic = async (query: string): Promise<string> => {
     IMPORTANT INSTRUCTIONS:
     - The topic must be a wikipedia topic
     - The topic must be a single topic, not a list of topics
-    - The topic must be a topic that is relevant to the query
+    - The topic must be a topic that is relevant to the query and is also related to the parent topic
     - If the topic cannot be determined, return "false" in the "canBeDetermined" field
 
     The response must be valid JSON that can be parsed without errors. There should be no text before or after the JSON object.
@@ -96,11 +102,52 @@ const retryOperation = async <T>(
     throw lastError;
 };
 
-export async function getNodeWithChildren(query: string): Promise<Record<string, any>> {
+const getRelevantPageId = async (topic: string, parentTopic?: string, parentSummary?: string): Promise<number> => {
+    const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${topic}&format=json`
+    const response = await retryOperation(() => fetch(url));
+    const data = await response.json();
+    console.log("wikipedia data: ", data.query.search);
+    console.log("parent topic: ", parentTopic);
+    console.log("parent summary: ", parentSummary);
+    const prompt = `You are an expert on wikipedia articles. You are given a topic, parent topic, a summary of the parent topic and a list of wikipedia pages with ids, titles and summaries. You need to return the wikipedia page id of the most relevant wikipedia article to the topic which is also related to the parent topic.
+
+    REMEMBER THE PARENT SUMMARY IS ONLY FOR YOU TO KNOW THE CONTEXT OF THE TOPIC. THE WIKIPEDIA PAGE ID YOU RETURN SHOULD BE THE MOST RELEVANT PAGE TO THE PARENT TOPIC AND SUMMARY.
+
+    TOPIC:
+    ${topic}
+
+    PARENT TOPIC:
+    ${parentTopic}
+
+    PARENT SUMMARY:
+    ${parentSummary}
+
+    OUTPUT JSON FORMAT:
+    {
+        "pageId": <wikipedia page id>
+    }
+
+    The response must be valid JSON that can be parsed without errors. There should be no text before or after the JSON object.
+
+    LIST OF PAGES:
+    ${JSON.stringify(data.query.search)}
+
+    The response JSON is:`;
+    console.log("prompt: ", prompt);
+    const res = await generateAlt(prompt);
+    if (!res)
+        return 0;
+    console.log("res: ", res);
+    const pageId = parseUntilJson(res).pageId;
+    console.log("pageId: ", pageId);
+    return pageId;
+}
+
+export async function getNodeWithChildren(query: string, parentTopic?: string, parentSummary?: string, keepTopic: boolean = false): Promise<Record<string, any>> {
     return retryOperation(async () => {
         if (!query)
             return {};
-        const wikipediaTopic = await retryOperation(() => getWikipediaTopic(query));
+        const wikipediaTopic = await retryOperation(() => getWikipediaTopic(query, parentTopic, keepTopic));
         if (!wikipediaTopic)
             return {};
         if (wikipediaTopic === "false")
@@ -108,12 +155,11 @@ export async function getNodeWithChildren(query: string): Promise<Record<string,
                 title: query,
                 summary: "No Wikipedia topic found",
                 keywords: [],
+                parentTitle: parentTopic,
+                parentSummary: parentSummary,
             };
         const topic = wikipediaTopic.trim().replace(/\s+/g, '%20');
-        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${topic}&format=json`
-        const response = await retryOperation(() => fetch(url));
-        const data = await response.json();
-        const pageId = data.query.search[0].pageid;
+        const pageId = await retryOperation(() => getRelevantPageId(topic, parentTopic, parentSummary));
         const articleUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=true&pageids=${pageId}&format=json`
         const articleResponse = await retryOperation(() => fetch(articleUrl));
         const articleData = await articleResponse.json();
@@ -156,6 +202,8 @@ export async function getNodeWithChildren(query: string): Promise<Record<string,
         const res = await retryOperation(() => generateWithRetry(prompt, article));
         const node = {
             title: wikipediaTopic.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+            parentTitle: parentTopic,
+            parentSummary: parentSummary,
             ...res
         }
         return node;

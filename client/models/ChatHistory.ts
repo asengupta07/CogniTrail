@@ -14,7 +14,15 @@ const nodeSchema = new mongoose.Schema({
     required: true,
   },
   data: {
-    type: Object,
+    type: {
+      label: String,
+      summary: String,
+      isRoot: Boolean,
+      isLoading: Boolean,
+      isExploring: Boolean,
+      parentTitle: String,
+      parentSummary: String,
+    },
     required: true,
   }
 });

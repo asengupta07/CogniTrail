@@ -30,6 +30,8 @@ interface TreeData {
   title: string
   summary: string
   keywords: string[]
+  parentTitle?: string
+  parentSummary?: string
 }
 
 interface CustomNodeData {
@@ -40,6 +42,8 @@ interface CustomNodeData {
   isLoading?: boolean
   onLearnMore?: () => void
   isExploring?: boolean
+  parentTitle?: string
+  parentSummary?: string
 }
 
 interface ChatHistory {
@@ -244,6 +248,8 @@ export default function LearningTree() {
         summary: data.summary,
         isRoot: !parentId,
         onLearnMore: data.summary ? () => handleLearnMore(data.title) : undefined,
+        parentTitle: data.parentTitle,
+        parentSummary: data.parentSummary,
       },
     }
     nodes.push(rootNode)
@@ -276,8 +282,10 @@ export default function LearningTree() {
           position: childPosition,
           data: {
             label: keyword,
-            onGenerate: () => generateTreeForNode(childNodeId, keyword),
+            onGenerate: () => generateTreeForNode(childNodeId, keyword, data.title, data.summary),
             isExploring: isExploring,
+            parentTitle: data.title,
+            parentSummary: data.summary,
           },
         }
 
@@ -348,6 +356,11 @@ export default function LearningTree() {
           body: JSON.stringify({ historyId, nodes: nodesToSave, edges: edgesToSave }),
         })
 
+        if (response.status === 400) {
+          console.log("Nodes or edges are empty, skipping update")
+          return
+        }
+
         if (!response.ok) {
           const errorBody = await response.text()
           if (errorBody.includes("Nodes or edges are empty")) {
@@ -371,7 +384,7 @@ export default function LearningTree() {
     [setChatHistory, setError],
   ) // Added setError dependency
 
-  const generateTreeForNode = async (parentNodeId: string, topic: string) => {
+  const generateTreeForNode = async (parentNodeId: string, topic: string, parentNodeTopic: string, parentNodeSummary: string) => {
     if (isExploring) return; // Prevent multiple explorations
     setIsExploring(true);
     setLoading(true)
@@ -379,18 +392,26 @@ export default function LearningTree() {
 
     try {
       console.log("Generating for node:", parentNodeId)
+      console.log("Current nodes:", nodes)
+      console.log("Current edges:", edges)
 
-      // Update the parent node to show loading state
-      setNodes((nds) =>
-        nds.map((node) => (node.id === parentNodeId ? { ...node, data: { ...node.data, isLoading: true } } : node)),
-      )
+      // Find the parent node's topic by looking at the edges
+
+      
+      console.log("parent node topic: ", parentNodeTopic);
+      console.log("parent node summary: ", parentNodeSummary);
 
       const response = await fetch("/api/initTree", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ topic }),
+        body: JSON.stringify({ 
+          topic,
+          parentTopic: parentNodeTopic,
+          parentSummary: parentNodeSummary,
+          keepTopic: true,
+        }),
       })
 
       if (!response.ok) {
@@ -399,17 +420,26 @@ export default function LearningTree() {
 
       const data: TreeData = await response.json()
 
-      // Get the parent node's position from the ref
       const parentNode = nodesRef.current.find((n) => n.id === parentNodeId)
 
-      if (!parentNode) {
-        throw new Error("Parent node not found")
+      console.log("parent node: ", parentNode)
+
+
+      // Get the parent node's position from the ref
+      const parentNodePosition = parentNode?.position;
+
+      if (!parentNodePosition) {
+        throw new Error("Parent node position not found")
       }
 
       // Convert the data to ReactFlow elements starting from parent position
       const { nodes: newNodes, edges: newEdges } = convertToReactFlowElements(
-        data,
-        parentNode.position,
+        {
+          ...data,
+          parentTitle: parentNodeTopic,
+          parentSummary: parentNodeSummary,
+        },
+        parentNodePosition,
         1,
         parentNodeId,
       )
@@ -423,6 +453,8 @@ export default function LearningTree() {
           onGenerate: undefined,
           isLoading: false,
           onLearnMore: () => handleLearnMore(data.title),
+          parentTitle: data.parentTitle,
+          parentSummary: data.parentSummary,
         },
       }
 
@@ -546,9 +578,11 @@ export default function LearningTree() {
           ...node,
           data: {
             ...node.data,
-            onGenerate: isUnexplored ? () => generateTreeForNode(node.id, node.data.label) : undefined,
+            onGenerate: isUnexplored ? () => generateTreeForNode(node.id, node.data.label, node.data.parentTitle, node.data.parentSummary) : undefined,
             onLearnMore: node.data.summary ? () => handleLearnMore(node.data.label) : undefined,
             isExploring: isExploring,
+            parentTitle: node.data.parentTitle,
+            parentSummary: node.data.parentSummary,
           },
         }
       })
