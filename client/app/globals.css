@@ -1,4 +1,3 @@
-
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
@@ -45,6 +44,13 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Neon theme colors */
+  --neon-primary: oklch(0.65 0.3 220);
+  --neon-secondary: oklch(0.7 0.25 300);
+  --neon-glow: oklch(0.65 0.3 220 / 50%);
+  --glass-bg: oklch(0.2 0.01 280 / 30%);
+  --glass-border: oklch(1 0 0 / 20%);
 }
 
 :root {
@@ -112,6 +118,13 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
+
+  /* Neon theme colors for dark mode */
+  --neon-primary: oklch(0.7 0.3 220);
+  --neon-secondary: oklch(0.75 0.25 300);
+  --neon-glow: oklch(0.7 0.3 220 / 30%);
+  --glass-bg: oklch(0.15 0.01 280 / 40%);
+  --glass-border: oklch(1 0 0 / 20%);
 }
 
 @layer base {
@@ -176,7 +189,117 @@
   }
 }
 
+body {
+  color: rgb(var(--foreground));
+  background: linear-gradient(to bottom right, rgb(17, 24, 39), rgb(0, 0, 0));
+}
 
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--glass-bg);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    to bottom,
+    var(--neon-primary),
+    var(--neon-secondary)
+  );
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    to bottom,
+    var(--neon-primary),
+    var(--neon-secondary)
+  );
+  filter: brightness(1.2);
+}
+
+/* Neon glow animations */
+@keyframes pulse-glow {
+  0% {
+    box-shadow: 0 0 2px var(--neon-glow), 0 0 4px var(--neon-glow);
+  }
+  50% {
+    box-shadow: 0 0 8px var(--neon-glow), 0 0 12px var(--neon-glow);
+  }
+  100% {
+    box-shadow: 0 0 2px var(--neon-glow), 0 0 4px var(--neon-glow);
+  }
+}
+
+.react-flow__node {
+  animation: pulse-glow 4s infinite ease-in-out;
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+}
+
+.react-flow__edge-path {
+  stroke-width: 2;
+  filter: drop-shadow(0 0 4px var(--neon-glow));
+}
+
+.react-flow__controls {
+  box-shadow: 0 0 8px var(--neon-glow);
+}
+
+.react-flow__controls-button {
+  background: var(--glass-bg) !important;
+  border-color: var(--glass-border) !important;
+  color: var(--foreground) !important;
+}
+
+.react-flow__controls-button:hover {
+  background: color-mix(
+    in oklch,
+    var(--neon-primary),
+    transparent 80%
+  ) !important;
+}
+
+.react-flow__attribution {
+  background: transparent !important;
+  color: color-mix(in oklch, var(--foreground), transparent 50%) !important;
+}
+
+/* Glass morphism effect */
+.glass-effect {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px var(--neon-glow);
+}
+
+/* Gradient text utility */
+.gradient-text {
+  background: linear-gradient(
+    to right,
+    var(--neon-primary),
+    var(--neon-secondary)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Neon border utility */
+.neon-border {
+  border: 1px solid var(--neon-primary);
+  box-shadow: 0 0 10px var(--neon-glow);
+}
+
+/* Animated elements */
+.animate-pulse-glow {
+  animation: pulse-glow 3s infinite ease-in-out;
+}
 
 @layer base {
   * {

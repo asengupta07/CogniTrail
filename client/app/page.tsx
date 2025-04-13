@@ -18,6 +18,7 @@ import ReactFlow, {
   Handle,
   Position,
   Panel,
+  BackgroundVariant,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,16 +27,17 @@ import {
   ChevronRight,
   Clock,
   Search,
-  Zap,
   MessageSquare,
   LogOut,
   User,
+  Sparkles,
 } from "lucide-react";
 import { ZoomSlider } from "@/components/zoom-slider";
 import { formatDate } from "@/lib/utils";
 import { ChatModal } from "@/components/chat-modal";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 
 interface TreeData {
   title: string;
@@ -70,22 +72,27 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3 }}
-      className={`p-6 rounded-xl shadow-lg ${
+      transition={{ duration: 0.5, type: "spring" }}
+      className={`p-6 rounded-xl shadow-lg backdrop-blur-md ${
         data.isRoot
-          ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white w-[800px]"
-          : "bg-white border border-gray-200 hover:border-purple-300 hover:shadow-purple-100"
+          ? "bg-gradient-to-r from-cyan-500/80 via-purple-500/80 to-fuchsia-500/80 text-white w-[800px] border border-white/20"
+          : "bg-white/10 border border-white/30 hover:border-cyan-300/70 hover:shadow-cyan-100/50"
       }`}
+      style={{
+        boxShadow: data.isRoot
+          ? "0 0 20px rgba(139, 92, 246, 0.5), 0 0 40px rgba(139, 92, 246, 0.2)"
+          : "0 0 15px rgba(6, 182, 212, 0.2)",
+      }}
     >
       <Handle
         type="target"
         position={Position.Left}
         style={{ width: 10, height: 10 }}
-        className="border-2 border-purple-300 bg-white"
+        className="border-2 border-cyan-300 bg-white"
       />
       <div
         className={`font-bold text-lg mb-3 ${
-          data.isRoot ? "text-white" : "text-gray-800"
+          data.isRoot ? "text-white" : "text-white"
         }`}
       >
         {data.label}
@@ -93,7 +100,7 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
       {data.summary && (
         <div
           className={`text-sm mb-3 ${
-            data.isRoot ? "text-white/90" : "text-gray-600"
+            data.isRoot ? "text-white/90" : "text-white/80"
           }`}
         >
           {data.summary}
@@ -102,11 +109,14 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
       <div className="flex gap-2">
         {!data.isRoot && data.onGenerate && (
           <motion.button
-            whileHover={{ scale: 1.05 }}
+            whileHover={{
+              scale: 1.05,
+              boxShadow: "0 0 15px rgba(6, 182, 212, 0.5)",
+            }}
             whileTap={{ scale: 0.95 }}
-            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-violet-600 text-white text-sm rounded-lg 
-                      hover:from-purple-600 hover:to-violet-700 shadow-md flex items-center gap-2
-                      disabled:opacity-70 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-fuchsia-600 text-white text-sm rounded-lg 
+                      hover:from-cyan-600 hover:to-fuchsia-700 shadow-md flex items-center gap-2
+                      disabled:opacity-70 disabled:cursor-not-allowed border border-white/20 backdrop-blur-md"
             onClick={data.onGenerate}
             disabled={data.isLoading || data.isExploring}
           >
@@ -117,7 +127,7 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
               </>
             ) : (
               <>
-                <Zap size={16} />
+                <Sparkles size={16} className="animate-pulse" />
                 Explore
               </>
             )}
@@ -125,10 +135,14 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
         )}
         {data.summary && data.onLearnMore && (
           <motion.button
-            whileHover={{ scale: 1.05 }}
+            whileHover={{
+              scale: 1.05,
+              boxShadow: "0 0 15px rgba(16, 185, 129, 0.5)",
+            }}
             whileTap={{ scale: 0.95 }}
-            className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white text-sm rounded-lg 
-                      hover:from-teal-600 hover:to-emerald-700 shadow-md flex items-center gap-2"
+            className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm rounded-lg 
+                      hover:from-emerald-600 hover:to-teal-700 shadow-md flex items-center gap-2
+                      border border-white/20 backdrop-blur-md"
             onClick={data.onLearnMore}
           >
             <MessageSquare size={16} />
@@ -140,7 +154,7 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
         type="source"
         position={Position.Right}
         style={{ width: 10, height: 10 }}
-        className="border-2 border-purple-300 bg-white"
+        className="border-2 border-cyan-300 bg-white"
       />
     </motion.div>
   );
@@ -345,11 +359,11 @@ export default function LearningTree() {
             type: MarkerType.ArrowClosed,
             width: 20,
             height: 20,
-            color: "#9333ea",
+            color: "#06b6d4",
           },
           style: {
-            stroke: "#9333ea",
-            strokeWidth: 2,
+            stroke: "url(#gradient)",
+            strokeWidth: 3,
           },
         };
 
@@ -372,11 +386,11 @@ export default function LearningTree() {
               type: MarkerType.ArrowClosed,
               width: 20,
               height: 20,
-              color: "#9333ea",
+              color: "#06b6d4",
             },
             style: {
-              stroke: "#9333ea",
-              strokeWidth: 2,
+              stroke: "url(#gradient)",
+              strokeWidth: 3,
             },
           },
           eds
@@ -713,36 +727,38 @@ export default function LearningTree() {
   // Add this component for the user profile section
   const UserProfile = ({ session }: { session: any }) => {
     return (
-      <div className="p-4 border-t border-gray-200 mt-auto">
+      <div className="p-4 border-t border-gray-200/10 mt-auto backdrop-blur-md bg-gradient-to-r from-cyan-500/10 to-purple-500/10">
         <div className="flex items-center gap-3">
           {session?.user?.image ? (
             <Image
-              src={session.user.image}
+              src={session.user.image || "/placeholder.svg"}
               alt={session.user.name || "User"}
               width={40}
               height={40}
-              className="rounded-full"
+              className="rounded-full border-2 border-cyan-300/50"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-              <User className="w-5 h-5 text-purple-600" />
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center">
+              <User className="w-5 h-5 text-white" />
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <p className="font-medium text-gray-800 truncate bg-gradient-to-r from-gray-800 via-gray-800 to-transparent bg-clip-text">
+            <p className="font-medium text-white truncate">
               {session.user.name}
             </p>
-            <p className="text-sm text-gray-500 truncate bg-gradient-to-r from-gray-500 via-gray-500 to-transparent bg-clip-text">
+            <p className="text-sm text-white/70 truncate">
               {session.user.email}
             </p>
           </div>
-          <button
+          <motion.button
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            whileTap={{ scale: 0.9 }}
             onClick={() => signOut()}
-            className="p-2 hover:bg-gray-100 rounded-full flex-shrink-0"
+            className="p-2 hover:bg-white/10 rounded-full flex-shrink-0 backdrop-blur-sm"
             title="Sign out"
           >
-            <LogOut className="w-5 h-5 text-gray-600" />
-          </button>
+            <LogOut className="w-5 h-5 text-white" />
+          </motion.button>
         </div>
       </div>
     );
@@ -751,51 +767,56 @@ export default function LearningTree() {
   // Add authentication check before the main content
   if (status === "loading") {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full" />
+      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+        <div className="animate-spin h-12 w-12 border-4 border-cyan-500 border-t-transparent rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]" />
       </div>
     );
   }
 
   if (!session) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">
-            Welcome to CogniTrail
-          </h1>
-          <p className="text-gray-600 mb-8">Please sign in to continue</p>
-          <button
-            onClick={() => signIn()}
-            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-violet-600 text-white rounded-lg 
-                      hover:from-purple-600 hover:to-violet-700 shadow-md"
-          >
-            Sign In
-          </button>
-        </div>
-      </div>
-    );
+    redirect("/auth/signin");
+    return null;
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-gradient-to-br from-gray-900 to-black overflow-hidden">
+      {/* SVG Gradient Definition for Edges */}
+      <svg style={{ position: "absolute", width: 0, height: 0 }}>
+        <defs>
+          <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#06b6d4" />
+            <stop offset="100%" stopColor="#d946ef" />
+          </linearGradient>
+        </defs>
+      </svg>
+
       {/* Chat History Sidebar */}
       <AnimatePresence initial={false}>
         {sidebarOpen && (
-          <motion.div className="w-80 h-full bg-white border-r border-gray-200 shadow-sm z-10 flex flex-col">
-            <div className="p-4 border-b border-gray-200">
+          <motion.div
+            initial={{ x: -320 }}
+            animate={{ x: 0 }}
+            exit={{ x: -320 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="w-80 h-full bg-black/30 backdrop-blur-xl border-r border-white/10 shadow-[0_0_25px_rgba(6,182,212,0.2)] z-10 flex flex-col"
+          >
+            <div className="p-4 border-b border-white/10">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-800">History</h2>
-                <button
+                <h2 className="text-xl font-bold text-white bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                  History
+                </h2>
+                <motion.button
+                  whileHover={{ scale: 1.1, rotate: -5 }}
+                  whileTap={{ scale: 0.9 }}
                   onClick={() => setSidebarOpen(false)}
-                  className="p-1 rounded-full hover:bg-gray-100"
+                  className="p-1.5 rounded-full hover:bg-white/10 backdrop-blur-sm"
                 >
-                  <ChevronLeft size={20} />
-                </button>
+                  <ChevronLeft size={20} className="text-white" />
+                </motion.button>
               </div>
               <div className="mt-4 relative">
                 <Search
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50"
                   size={18}
                 />
                 <input
@@ -803,7 +824,7 @@ export default function LearningTree() {
                   placeholder="Search history..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-white/20 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white/5 backdrop-blur-md text-white placeholder-white/50"
                 />
               </div>
             </div>
@@ -811,19 +832,20 @@ export default function LearningTree() {
               {filteredChatHistory.map((item) => (
                 <motion.div
                   key={item._id}
-                  whileHover={{ backgroundColor: "rgba(147, 51, 234, 0.05)" }}
-                  className="p-4 border-b border-gray-100 cursor-pointer"
+                  whileHover={{
+                    backgroundColor: "rgba(6, 182, 212, 0.1)",
+                    boxShadow: "0 0 15px rgba(6, 182, 212, 0.2)",
+                  }}
+                  className="p-4 border-b border-white/10 cursor-pointer transition-all duration-300"
                   onClick={() => loadHistoryItem(item._id)}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-full bg-purple-100">
-                      <Clock size={16} className="text-purple-600" />
+                    <div className="p-2 rounded-full bg-gradient-to-r from-cyan-500/20 to-purple-500/20 backdrop-blur-sm">
+                      <Clock size={16} className="text-cyan-400" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-gray-800">
-                        {item.topic}
-                      </h3>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <h3 className="font-medium text-white">{item.topic}</h3>
+                      <p className="text-xs text-white/60 mt-1">
                         {formatDate(item.date)}
                       </p>
                     </div>
@@ -843,7 +865,11 @@ export default function LearningTree() {
           <motion.button
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute top-4 left-4 z-20 p-2 rounded-full bg-white shadow-md hover:bg-gray-50"
+            whileHover={{
+              scale: 1.1,
+              boxShadow: "0 0 15px rgba(6, 182, 212, 0.5)",
+            }}
+            className="absolute top-4 left-4 z-20 p-2 rounded-full bg-black/30 backdrop-blur-xl border border-white/20 shadow-lg hover:bg-black/50 text-white"
             onClick={() => setSidebarOpen(true)}
           >
             <ChevronRight size={20} />
@@ -868,43 +894,54 @@ export default function LearningTree() {
                 type: MarkerType.ArrowClosed,
                 width: 20,
                 height: 20,
-                color: "#9333ea",
+                color: "#06b6d4",
               },
               style: {
-                stroke: "#9333ea",
-                strokeWidth: 2,
+                stroke: "url(#gradient)",
+                strokeWidth: 3,
               },
             }}
-            style={{ background: "#f8fafc" }}
+            style={{ background: "transparent" }}
             minZoom={0.1}
             maxZoom={3}
             defaultViewport={{ x: 0, y: 0, zoom: 2 }}
             attributionPosition="bottom-right"
           >
-            <Controls className="bg-white shadow-md rounded-lg border border-gray-200" />
-            <Background color="#9333ea" gap={24} size={1} />
+            <Controls className="bg-white/30 backdrop-blur-xl shadow-lg rounded-lg border border-white/20 text-purple-400" />
+            <Background
+              color="#06b6d4"
+              gap={24}
+              size={1.5}
+              variant={BackgroundVariant.Dots}
+              className="bg-gradient-to-br from-gray-900 to-black"
+            />
             <ZoomSlider position="bottom-right" />
             <Panel
               position="top-center"
-              className="bg-white/80 backdrop-blur-sm p-2 sm:p-3 rounded-lg shadow-md border border-gray-200"
+              className="bg-black/30 backdrop-blur-xl p-2 sm:p-3 rounded-lg shadow-lg border border-white/20"
             >
-              <h1 className="text-md sm:text-xl font-bold text-gray-800">
+              <h1 className="text-md sm:text-xl font-bold text-transparent bg-gradient-to-r from-cyan-400 via-purple-400 to-fuchsia-400 bg-clip-text">
                 CogniTrail Explorer
               </h1>
             </Panel>
             <Panel
               position="bottom-center"
-              className="bg-white/80 backdrop-blur-sm p-1.5 sm:p-2 rounded-lg shadow-md border border-gray-200"
+              className="bg-black/30 backdrop-blur-xl p-1.5 sm:p-2 rounded-lg shadow-lg border border-white/20"
             >
-              <button
+              <motion.button
+                whileHover={{
+                  scale: 1.05,
+                  boxShadow: "0 0 20px rgba(6, 182, 212, 0.5)",
+                }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => setShowModal(true)}
-                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-purple-500 to-violet-600 text-white rounded-lg 
-                          hover:from-purple-600 hover:to-violet-700 shadow-md flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base"
+                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-cyan-500 to-fuchsia-600 text-white rounded-lg 
+                          shadow-lg flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base border border-white/20"
               >
                 <Search size={14} className="sm:w-4 sm:h-4 w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Explore New Topic</span>
                 <span className="sm:hidden">Explore</span>
-              </button>
+              </motion.button>
             </Panel>
           </ReactFlow>
         </div>
@@ -916,23 +953,25 @@ export default function LearningTree() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+              className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4"
             >
               <motion.div
                 initial={{ scale: 0.9, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.9, y: 20 }}
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 max-w-2xl w-full relative"
+                className="bg-black/50 backdrop-blur-xl rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.3)] p-4 sm:p-8 max-w-2xl w-full relative border border-white/20"
               >
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  whileTap={{ scale: 0.9 }}
                   onClick={() => setShowModal(false)}
-                  className="absolute top-2 right-2 sm:top-4 sm:right-4 p-1.5 sm:p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  className="absolute top-2 right-2 sm:top-4 sm:right-4 p-1.5 sm:p-2 rounded-full hover:bg-white/10 transition-colors text-white"
                   aria-label="Close modal"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 sm:h-6 sm:w-6 text-gray-500"
+                    className="h-5 w-5 sm:h-6 sm:w-6"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -944,13 +983,13 @@ export default function LearningTree() {
                       d="M6 18L18 6M6 6l12 12"
                     />
                   </svg>
-                </button>
+                </motion.button>
 
                 <div className="text-center mb-4 sm:mb-6">
-                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-1 sm:mb-2">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-transparent bg-gradient-to-r from-cyan-400 via-purple-400 to-fuchsia-400 bg-clip-text mb-1 sm:mb-2">
                     Generate a CogniTrail Map
                   </h2>
-                  <p className="text-sm sm:text-base text-gray-600">
+                  <p className="text-sm sm:text-base text-white/80">
                     Enter a topic you want to explore, and have fun going down
                     the rabbit hole!
                   </p>
@@ -963,18 +1002,21 @@ export default function LearningTree() {
                     onChange={(e) => setTopic(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="e.g., Machine Learning, Quantum Physics, Climate Change..."
-                    className="w-full px-4 py-3 sm:px-5 sm:py-4 text-base sm:text-lg border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-3 sm:px-5 sm:py-4 text-base sm:text-lg border-2 border-cyan-500/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-black/30 backdrop-blur-md text-white placeholder-white/50"
                     autoFocus
                   />
 
                   <motion.button
-                    whileHover={{ scale: 1.05 }}
+                    whileHover={{
+                      scale: 1.05,
+                      boxShadow: "0 0 20px rgba(6, 182, 212, 0.5)",
+                    }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleGenerateTree}
                     disabled={loading}
-                    className="mt-4 sm:mt-6 w-full px-4 py-3 sm:px-6 sm:py-4 bg-gradient-to-r from-purple-500 to-violet-600 text-white text-base sm:text-lg font-medium rounded-xl 
-                              hover:from-purple-600 hover:to-violet-700 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed
-                              flex items-center justify-center gap-2"
+                    className="mt-4 sm:mt-6 w-full px-4 py-3 sm:px-6 sm:py-4 bg-gradient-to-r from-cyan-500 to-fuchsia-600 text-white text-base sm:text-lg font-medium rounded-xl 
+                              hover:from-cyan-600 hover:to-fuchsia-700 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed
+                              flex items-center justify-center gap-2 border border-white/20"
                   >
                     {loading ? (
                       <>
@@ -985,7 +1027,10 @@ export default function LearningTree() {
                       </>
                     ) : (
                       <>
-                        <Zap size={16} className="sm:w-5 sm:h-5" />
+                        <Sparkles
+                          size={16}
+                          className="sm:w-5 sm:h-5 animate-pulse"
+                        />
                         <span className="text-sm sm:text-base">
                           Generate Learning Tree
                         </span>
@@ -998,7 +1043,7 @@ export default function LearningTree() {
                   <motion.p
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-3 sm:mt-4 text-sm sm:text-base text-red-500 text-center"
+                    className="mt-3 sm:mt-4 text-sm sm:text-base text-red-400 text-center"
                   >
                     {error}
                   </motion.p>
@@ -1008,7 +1053,7 @@ export default function LearningTree() {
                   <div className="mt-3 sm:mt-4 text-center">
                     <button
                       onClick={() => setShowModal(false)}
-                      className="text-sm sm:text-base text-purple-600 hover:text-purple-800 font-medium"
+                      className="text-sm sm:text-base text-cyan-400 hover:text-cyan-300 font-medium"
                     >
                       Return to current tree
                     </button>

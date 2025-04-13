@@ -1,21 +1,21 @@
-"use client"
+"use client";
 
-import { useCallback } from "react"
-import { useReactFlow, useStore, type ReactFlowState } from "reactflow"
-import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
-import { ZoomIn, ZoomOut } from "lucide-react"
+import { useCallback } from "react";
+import { useReactFlow, useStore, type ReactFlowState } from "reactflow";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { ZoomIn, ZoomOut } from "lucide-react";
 
 export function ZoomSlider({ position = "top-left" }: { position?: string }) {
-  const { zoomIn, zoomOut, setCenter } = useReactFlow()
-  const zoom = useStore((state: ReactFlowState) => state.transform[2])
+  const { zoomIn, zoomOut, setCenter } = useReactFlow();
+  const zoom = useStore((state: ReactFlowState) => state.transform[2]);
 
   const handleZoomChange = useCallback(
     (value: number[]) => {
-      setCenter(0, 0, { zoom: value[0] })
+      setCenter(0, 0, { zoom: value[0] });
     },
     [setCenter]
-  )
+  );
 
   return (
     <div
@@ -46,5 +46,5 @@ export function ZoomSlider({ position = "top-left" }: { position?: string }) {
         <ZoomIn className="h-4 w-4" />
       </Button>
     </div>
-  )
+  );
 }
