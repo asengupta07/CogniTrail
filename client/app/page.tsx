@@ -31,6 +31,8 @@ import {
   LogOut,
   User,
   Sparkles,
+  X,
+  Trash2,
 } from "lucide-react";
 import { ZoomSlider } from "@/components/zoom-slider";
 import { formatDate } from "@/lib/utils";
@@ -38,6 +40,7 @@ import { ChatModal } from "@/components/chat-modal";
 import { useSession, signOut } from "next-auth/react";
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import { PlaceholderNode } from "@/components/placeholder-node";
 
 interface TreeData {
   title: string;
@@ -57,6 +60,7 @@ interface CustomNodeData {
   isExploring?: boolean;
   parentTitle?: string;
   parentSummary?: string;
+  onDelete?: () => void;
 }
 
 interface ChatHistory {
@@ -73,10 +77,10 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5, type: "spring" }}
-      className={`p-6 rounded-xl shadow-lg backdrop-blur-md ${
+      className={`p-6 rounded-xl shadow-lg backdrop-blur-md relative ${
         data.isRoot
-          ? "bg-gradient-to-r from-cyan-500/80 via-purple-500/80 to-fuchsia-500/80 text-white w-[800px] border border-white/20"
-          : "bg-white/10 border border-white/30 hover:border-cyan-300/70 hover:shadow-cyan-100/50"
+          ? "bg-gradient-to-r from-cyan-500 via-purple-500 to-fuchsia-500 text-white w-[800px] border border-white/20"
+          : "bg-white/10 border border-white/30 hover:border-cyan-300/70 hover:shadow-cyan-100/50 max-w-[800px]"
       }`}
       style={{
         boxShadow: data.isRoot
@@ -90,12 +94,27 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
         style={{ width: 10, height: 10 }}
         className="border-2 border-cyan-300 bg-white"
       />
-      <div
-        className={`font-bold text-lg mb-3 ${
-          data.isRoot ? "text-white" : "text-white"
-        }`}
-      >
-        {data.label}
+      {!data.isRoot && data.onDelete && !data.summary && (
+        <motion.button
+          whileHover={{ scale: 1.1, rotate: 5 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={data.onDelete}
+          className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-red-500/20 text-white/70 hover:text-red-400 transition-colors"
+          title="Delete node"
+        >
+          <Trash2 size={16} />
+        </motion.button>
+      )}
+      <div className={`flex justify-between items-start ${
+        !data.summary && "pe-4"
+      }`}>
+        <div
+          className={`font-bold text-lg mb-3 ${
+            data.isRoot ? "text-white" : "text-white"
+          }`}
+        >
+          {data.label}
+        </div>
       </div>
       {data.summary && (
         <div
@@ -162,6 +181,7 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
 
 const nodeTypes = {
   custom: CustomNode,
+  placeholder: PlaceholderNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -186,6 +206,11 @@ export default function LearningTree() {
   const nodesRef = useRef<Node[]>([]);
   const historyUpdateDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const { data: session, status } = useSession();
+  const [showNodeNameModal, setShowNodeNameModal] = useState(false);
+  const [newNodeName, setNewNodeName] = useState("");
+  const [selectedParentNode, setSelectedParentNode] = useState<Node | null>(null);
+  const [selectedPosition, setSelectedPosition] = useState<XYPosition | null>(null);
+  const [clickedPlaceholderId, setClickedPlaceholderId] = useState<string | null>(null);
 
   // Update the ref whenever nodes change
   useEffect(() => {
@@ -226,7 +251,7 @@ export default function LearningTree() {
 
   const nodeHeight = 40;
   const MIN_HORIZONTAL_SPACING = 2000; // Minimum spacing between nodes
-  const verticalSpacing = 200;
+  const verticalSpacing = 300;
   const NODE_WIDTH = 200; // Base width for non-root nodes
   const ROOT_NODE_WIDTH = 500; // Width for root nodes
   const COLLISION_THRESHOLD = 300; // Minimum distance between nodes
@@ -274,6 +299,43 @@ export default function LearningTree() {
   const handleLearnMore = (nodeTitle: string) => {
     setCurrentNodeTitle(nodeTitle);
     setChatModalOpen(true);
+  };
+
+  const handleDeleteNode = (nodeId: string) => {
+    // Find all nodes that need to be deleted (the node and its children)
+    const nodesToDelete = new Set<string>();
+    const edgesToDelete = new Set<string>();
+    
+    // Add the node itself
+    nodesToDelete.add(nodeId);
+    
+    // Find all edges connected to this node
+    const connectedEdges = edges.filter(edge => 
+      edge.source === nodeId || edge.target === nodeId
+    );
+    
+    // Add all connected edges to delete set
+    connectedEdges.forEach(edge => {
+      edgesToDelete.add(edge.id);
+      
+      // If this is a source edge, add the target node to delete set
+      if (edge.source === nodeId) {
+        nodesToDelete.add(edge.target);
+      }
+    });
+    
+    // Update nodes and edges
+    setNodes(nds => nds.filter(node => !nodesToDelete.has(node.id)));
+    setEdges(eds => eds.filter(edge => !edgesToDelete.has(edge.id)));
+    
+    // Update history if needed
+    if (currentHistoryId) {
+      updateHistory(
+        currentHistoryId,
+        nodes.filter(node => !nodesToDelete.has(node.id)),
+        edges.filter(edge => !edgesToDelete.has(edge.id))
+      );
+    }
   };
 
   const convertToReactFlowElements = (
@@ -342,6 +404,7 @@ export default function LearningTree() {
             isExploring: isExploring,
             parentTitle: data.title,
             parentSummary: data.summary,
+            onDelete: () => handleDeleteNode(childNodeId),
           },
         };
 
@@ -369,6 +432,44 @@ export default function LearningTree() {
 
         edges.push(edge);
       });
+
+      // Add placeholder node
+      const placeholderPosition: XYPosition = {
+        x: position.x + parentWidth + MIN_HORIZONTAL_SPACING,
+        y: startY + childrenCount * (nodeHeight + verticalSpacing),
+      };
+
+      const placeholderNodeId = getNextId(rootNode.id);
+      const placeholderNode: Node = {
+        id: placeholderNodeId,
+        type: "placeholder",
+        position: placeholderPosition,
+        data: {},
+      };
+
+      nodes.push(placeholderNode);
+
+      const placeholderEdge: Edge = {
+        id: `edge-${rootNode.id}-${placeholderNodeId}`,
+        source: rootNode.id,
+        target: placeholderNodeId,
+        type: "bezier",
+        animated: true,
+        sourceHandle: "source",
+        targetHandle: "target",
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 20,
+          height: 20,
+          color: "#06b6d4",
+        },
+        style: {
+          stroke: "url(#gradient)",
+          strokeWidth: 3,
+        },
+      };
+
+      edges.push(placeholderEdge);
     }
 
     return { nodes, edges };
@@ -764,6 +865,131 @@ export default function LearningTree() {
     );
   };
 
+  // Add this new function to handle node creation
+  const handleNodeCreate = (placeholderId: string, position: XYPosition) => {
+    // Find the edge connected to this placeholder to find the parent
+    const parentEdge = edges.find((e) => e.target === placeholderId);
+    if (!parentEdge) {
+      console.error("Could not find parent edge for placeholder:", placeholderId);
+      return;
+    }
+    const parentNode = nodes.find((n) => n.id === parentEdge.source);
+    if (!parentNode) {
+      console.error("Could not find parent node for placeholder:", placeholderId);
+      return;
+    }
+
+    setSelectedParentNode(parentNode); // This is the actual parent
+    setSelectedPosition(position);     // Position for the new node
+    setClickedPlaceholderId(placeholderId); // Store the ID of the placeholder we clicked
+    setShowNodeNameModal(true);
+  };
+
+  const handleNodeNameSubmit = () => {
+    if (
+      !selectedParentNode ||
+      !selectedPosition ||
+      !newNodeName.trim() ||
+      !clickedPlaceholderId
+    )
+      return;
+
+    const newNodeId = getNextId(selectedParentNode.id);
+    const newNode: Node = {
+      id: newNodeId,
+      type: "custom",
+      position: selectedPosition,
+      data: {
+        label: newNodeName,
+        onGenerate: () =>
+          generateTreeForNode(
+            newNodeId,
+            newNodeName,
+            selectedParentNode.data.label,
+            selectedParentNode.data.summary
+          ),
+        isExploring: isExploring,
+        parentTitle: selectedParentNode.data.label,
+        parentSummary: selectedParentNode.data.summary,
+        onDelete: () => handleDeleteNode(newNodeId),
+      },
+    };
+
+    // Edge from parent to the new node
+    const newEdge: Edge = {
+      id: `edge-${selectedParentNode.id}-${newNodeId}`,
+      source: selectedParentNode.id,
+      target: newNodeId,
+      type: "bezier",
+      animated: true,
+      sourceHandle: "source",
+      targetHandle: "target",
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        width: 20,
+        height: 20,
+        color: "#06b6d4",
+      },
+      style: {
+        stroke: "url(#gradient)",
+        strokeWidth: 3,
+      },
+    };
+
+    // Position for the new placeholder (below the new node)
+    const placeholderPosition: XYPosition = {
+      x: selectedPosition.x,
+      y: selectedPosition.y + nodeHeight + verticalSpacing,
+    };
+
+    const placeholderNodeId = getNextId(selectedParentNode.id); // Generate ID based on parent
+    const placeholderNode: Node = {
+      id: placeholderNodeId,
+      type: "placeholder",
+      position: placeholderPosition,
+      data: {},
+    };
+
+    // Edge from PARENT to the NEW placeholder
+    const placeholderEdge: Edge = {
+      id: `edge-${selectedParentNode.id}-${placeholderNodeId}`,
+      source: selectedParentNode.id, // Connect to the PARENT
+      target: placeholderNodeId,
+      type: "bezier",
+      animated: true,
+      sourceHandle: "source",
+      targetHandle: "target",
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        width: 20,
+        height: 20,
+        color: "#06b6d4",
+      },
+      style: {
+        stroke: "url(#gradient)",
+        strokeWidth: 3,
+      },
+    };
+
+    setNodes((nds) => [
+      ...nds.filter((n) => n.id !== clickedPlaceholderId), // Remove old placeholder node
+      newNode,
+      placeholderNode,
+    ]);
+    setEdges((eds) => [
+      ...eds.filter((e) => e.target !== clickedPlaceholderId), // Remove old placeholder edge
+      newEdge,
+      placeholderEdge,
+    ]);
+
+    // Reset state
+    setShowNodeNameModal(false);
+    setNewNodeName("");
+    setSelectedParentNode(null);
+    setSelectedPosition(null);
+    setClickedPlaceholderId(null);
+  };
+
   // Add authentication check before the main content
   if (status === "loading") {
     return (
@@ -837,7 +1063,12 @@ export default function LearningTree() {
                     boxShadow: "0 0 15px rgba(6, 182, 212, 0.2)",
                   }}
                   className="p-4 border-b border-white/10 cursor-pointer transition-all duration-300"
-                  onClick={() => loadHistoryItem(item._id)}
+                  onClick={() => {
+                    loadHistoryItem(item._id);
+                    if (window.innerWidth < 768) {
+                      setSidebarOpen(false);
+                    }
+                  }}
                 >
                   <div className="flex items-start gap-3">
                     <div className="p-2 rounded-full bg-gradient-to-r from-cyan-500/20 to-purple-500/20 backdrop-blur-sm">
@@ -906,6 +1137,11 @@ export default function LearningTree() {
             maxZoom={3}
             defaultViewport={{ x: 0, y: 0, zoom: 2 }}
             attributionPosition="bottom-right"
+            onNodeClick={(event, node) => {
+              if (node.type === "placeholder") {
+                handleNodeCreate(node.id, node.position);
+              }
+            }}
           >
             <Controls className="bg-white/30 backdrop-blur-xl shadow-lg rounded-lg border border-white/20 text-purple-400" />
             <Background
@@ -1072,6 +1308,81 @@ export default function LearningTree() {
               onClose={() => setChatModalOpen(false)}
               nodeTitle={currentNodeTitle}
             />
+          )}
+        </AnimatePresence>
+
+        {/* Node Name Modal */}
+        <AnimatePresence>
+          {showNodeNameModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                className="bg-black/50 backdrop-blur-xl rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.3)] p-6 max-w-md w-full relative border border-white/20"
+              >
+                <motion.button
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => {
+                    setShowNodeNameModal(false);
+                    setNewNodeName("");
+                    setSelectedParentNode(null);
+                    setSelectedPosition(null);
+                  }}
+                  className="absolute top-2 right-2 p-2 rounded-full hover:bg-white/10 transition-colors text-white"
+                >
+                  <X size={20} />
+                </motion.button>
+
+                <div className="text-center mb-4">
+                  <h2 className="text-xl font-bold text-transparent bg-gradient-to-r from-cyan-400 via-purple-400 to-fuchsia-400 bg-clip-text">
+                    Name Your New Node
+                  </h2>
+                  <p className="text-sm text-white/80 mt-1">
+                    Enter a name for your new learning node
+                  </p>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={newNodeName}
+                    onChange={(e) => setNewNodeName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleNodeNameSubmit();
+                      }
+                    }}
+                    placeholder="Enter node name..."
+                    className="w-full px-4 py-3 text-base border-2 border-cyan-500/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-black/30 backdrop-blur-md text-white placeholder-white/50"
+                    autoFocus
+                  />
+
+                  <motion.button
+                    whileHover={{
+                      scale: 1.05,
+                      boxShadow: "0 0 20px rgba(6, 182, 212, 0.5)",
+                    }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleNodeNameSubmit}
+                    disabled={!newNodeName.trim()}
+                    className="mt-4 w-full px-4 py-3 bg-gradient-to-r from-cyan-500 to-fuchsia-600 text-white text-base font-medium rounded-xl 
+                              hover:from-cyan-600 hover:to-fuchsia-700 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed
+                              flex items-center justify-center gap-2 border border-white/20"
+                  >
+                    <Sparkles size={16} className="animate-pulse" />
+                    Create Node
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>

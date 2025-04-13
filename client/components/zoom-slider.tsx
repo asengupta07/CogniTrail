@@ -19,7 +19,7 @@ export function ZoomSlider({ position = "top-left" }: { position?: string }) {
 
   return (
     <div
-      className={`absolute ${position} hidden md:flex items-center gap-2 bg-white p-2 m-4 ms-16 rounded-lg shadow-md border border-gray-200`}
+      className={`absolute ${position} hidden md:flex items-center gap-2 bg-white p-2 m-4 z-50 ms-16 rounded-lg shadow-md border border-gray-200`}
     >
       <Button
         variant="ghost"
