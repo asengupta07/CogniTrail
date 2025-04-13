@@ -1156,7 +1156,7 @@ export default function LearningTree() {
               position="top-center"
               className="bg-black/30 backdrop-blur-xl p-2 sm:p-3 rounded-lg shadow-lg border border-white/20"
             >
-              <h1 className="text-md sm:text-xl font-bold text-transparent bg-gradient-to-r from-cyan-400 via-purple-400 to-fuchsia-400 bg-clip-text">
+              <h1 className="text-md sm:text-xl font-bold text-transparent bg-gradient-to-r from-cyan-400 via-purple-400 to-fuchsia-400 bg-clip-text text-center">
                 CogniTrail Explorer
               </h1>
             </Panel>
