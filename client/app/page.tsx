@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState, useCallback, useRef, useEffect } from "react"
+import type React from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import ReactFlow, {
   type Node,
   type Edge,
@@ -18,40 +18,51 @@ import ReactFlow, {
   Handle,
   Position,
   Panel,
-} from "reactflow"
-import "reactflow/dist/style.css"
-import { motion, AnimatePresence } from "framer-motion"
-import { ChevronLeft, ChevronRight, Clock, Search, Zap, MessageSquare } from "lucide-react"
-import { ZoomSlider } from "@/components/zoom-slider"
-import { formatDate } from "@/lib/utils"
-import { ChatModal } from "@/components/chat-modal"
+} from "reactflow";
+import "reactflow/dist/style.css";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Search,
+  Zap,
+  MessageSquare,
+  LogOut,
+  User,
+} from "lucide-react";
+import { ZoomSlider } from "@/components/zoom-slider";
+import { formatDate } from "@/lib/utils";
+import { ChatModal } from "@/components/chat-modal";
+import { useSession, signIn, signOut } from "next-auth/react";
+import Image from "next/image";
 
 interface TreeData {
-  title: string
-  summary: string
-  keywords: string[]
-  parentTitle?: string
-  parentSummary?: string
+  title: string;
+  summary: string;
+  keywords: string[];
+  parentTitle?: string;
+  parentSummary?: string;
 }
 
 interface CustomNodeData {
-  label: string
-  summary?: string
-  isRoot?: boolean
-  onGenerate?: () => void
-  isLoading?: boolean
-  onLearnMore?: () => void
-  isExploring?: boolean
-  parentTitle?: string
-  parentSummary?: string
+  label: string;
+  summary?: string;
+  isRoot?: boolean;
+  onGenerate?: () => void;
+  isLoading?: boolean;
+  onLearnMore?: () => void;
+  isExploring?: boolean;
+  parentTitle?: string;
+  parentSummary?: string;
 }
 
 interface ChatHistory {
-  _id: string
-  topic: string
-  date: string
-  nodes: Node[]
-  edges: Edge[]
+  _id: string;
+  topic: string;
+  date: string;
+  nodes: Node[];
+  edges: Edge[];
 }
 
 const CustomNode = ({ data }: { data: CustomNodeData }) => {
@@ -72,9 +83,21 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
         style={{ width: 10, height: 10 }}
         className="border-2 border-purple-300 bg-white"
       />
-      <div className={`font-bold text-lg mb-3 ${data.isRoot ? "text-white" : "text-gray-800"}`}>{data.label}</div>
+      <div
+        className={`font-bold text-lg mb-3 ${
+          data.isRoot ? "text-white" : "text-gray-800"
+        }`}
+      >
+        {data.label}
+      </div>
       {data.summary && (
-        <div className={`text-sm mb-3 ${data.isRoot ? "text-white/90" : "text-gray-600"}`}>{data.summary}</div>
+        <div
+          className={`text-sm mb-3 ${
+            data.isRoot ? "text-white/90" : "text-gray-600"
+          }`}
+        >
+          {data.summary}
+        </div>
       )}
       <div className="flex gap-2">
         {!data.isRoot && data.onGenerate && (
@@ -120,123 +143,133 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
         className="border-2 border-purple-300 bg-white"
       />
     </motion.div>
-  )
-}
+  );
+};
 
 const nodeTypes = {
   custom: CustomNode,
-}
+};
 
 const edgeTypes: EdgeTypes = {
   bezier: BezierEdge,
-}
+};
 
 export default function LearningTree() {
-  const [showModal, setShowModal] = useState(true)
-  const [topic, setTopic] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [isExploring, setIsExploring] = useState(false)
-  const [nodes, setNodes, onNodesState] = useNodesState([])
-  const [edges, setEdges, onEdgesState] = useEdgesState([])
-  const [error, setError] = useState<string | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([])
-  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [chatModalOpen, setChatModalOpen] = useState(false)
-  const [currentNodeTitle, setCurrentNodeTitle] = useState("")
-  const nodeId = useRef(0)
-  const nodesRef = useRef<Node[]>([])
-  const historyUpdateDebounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const [showModal, setShowModal] = useState(true);
+  const [topic, setTopic] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [isExploring, setIsExploring] = useState(false);
+  const [nodes, setNodes, onNodesState] = useNodesState([]);
+  const [edges, setEdges, onEdgesState] = useEdgesState([]);
+  const [error, setError] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
+  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [currentNodeTitle, setCurrentNodeTitle] = useState("");
+  const nodeId = useRef(0);
+  const nodesRef = useRef<Node[]>([]);
+  const historyUpdateDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const { data: session, status } = useSession();
 
   // Update the ref whenever nodes change
   useEffect(() => {
-    nodesRef.current = nodes
-  }, [nodes])
+    nodesRef.current = nodes;
+  }, [nodes]);
 
   // Fetch chat history (dummy implementation)
   useEffect(() => {
     const fetchChatHistory = async () => {
       try {
-        const response = await fetch("/api/history")
+        const response = await fetch("/api/history");
         if (!response.ok) {
-          throw new Error("Failed to fetch chat history")
+          throw new Error("Failed to fetch chat history");
         }
-        const data = await response.json()
-        if (data.length === 0) setChatHistory([])
+        const data = await response.json();
+        if (data.length === 0) setChatHistory([]);
         else {
-          setChatHistory(data)
+          setChatHistory(data);
         }
       } catch (error) {
-        console.error("Error fetching chat history:", error)
+        console.error("Error fetching chat history:", error);
       }
-    }
+    };
 
-    fetchChatHistory()
-  }, [])
+    fetchChatHistory();
+  }, []);
 
   const getNextId = (parentId?: string) => {
-    nodeId.current += 1
-    return parentId ? `${parentId}-${nodeId.current}` : `node-${nodeId.current}`
-  }
+    nodeId.current += 1;
+    return parentId
+      ? `${parentId}-${nodeId.current}`
+      : `node-${nodeId.current}`;
+  };
 
   const resetNodeIds = () => {
-    nodeId.current = 0
-  }
+    nodeId.current = 0;
+  };
 
-  const nodeHeight = 40
-  const MIN_HORIZONTAL_SPACING = 2000 // Minimum spacing between nodes
-  const verticalSpacing = 200
-  const NODE_WIDTH = 200 // Base width for non-root nodes
-  const ROOT_NODE_WIDTH = 500 // Width for root nodes
-  const COLLISION_THRESHOLD = 300 // Minimum distance between nodes
-  const COLLISION_RESOLUTION = 1000 // How far to move a node when collision is detected
+  const nodeHeight = 40;
+  const MIN_HORIZONTAL_SPACING = 2000; // Minimum spacing between nodes
+  const verticalSpacing = 200;
+  const NODE_WIDTH = 200; // Base width for non-root nodes
+  const ROOT_NODE_WIDTH = 500; // Width for root nodes
+  const COLLISION_THRESHOLD = 300; // Minimum distance between nodes
+  const COLLISION_RESOLUTION = 1000; // How far to move a node when collision is detected
 
   const calculateNodeWidth = (node: Node) => {
-    return node.data.isRoot ? ROOT_NODE_WIDTH : NODE_WIDTH
-  }
+    return node.data.isRoot ? ROOT_NODE_WIDTH : NODE_WIDTH;
+  };
 
   const calculateSubtreeHeight = (data: TreeData): number => {
     // Base height for the current node
-    let height = nodeHeight
+    let height = nodeHeight;
 
     // If this node has children, add their heights plus spacing
     if (data.keywords && data.keywords.length > 0) {
-      height += data.keywords.length * (nodeHeight + verticalSpacing) - verticalSpacing
+      height +=
+        data.keywords.length * (nodeHeight + verticalSpacing) - verticalSpacing;
     }
 
-    return height
-  }
+    return height;
+  };
 
-  const checkNodeCollision = (position: XYPosition, existingNodes: Node[]): boolean => {
+  const checkNodeCollision = (
+    position: XYPosition,
+    existingNodes: Node[]
+  ): boolean => {
     return existingNodes.some((node) => {
-      const dx = Math.abs(position.x - node.position.x)
-      const dy = Math.abs(position.y - node.position.y)
-      return dx < COLLISION_THRESHOLD && dy < COLLISION_THRESHOLD
-    })
-  }
+      const dx = Math.abs(position.x - node.position.x);
+      const dy = Math.abs(position.y - node.position.y);
+      return dx < COLLISION_THRESHOLD && dy < COLLISION_THRESHOLD;
+    });
+  };
 
-  const resolveCollision = (position: XYPosition, existingNodes: Node[]): XYPosition => {
-    let newX = position.x
+  const resolveCollision = (
+    position: XYPosition,
+    existingNodes: Node[]
+  ): XYPosition => {
+    let newX = position.x;
     while (checkNodeCollision({ x: newX, y: position.y }, existingNodes)) {
-      newX += COLLISION_RESOLUTION
+      newX += COLLISION_RESOLUTION;
     }
-    return { x: newX, y: position.y }
-  }
+    return { x: newX, y: position.y };
+  };
 
   const handleLearnMore = (nodeTitle: string) => {
-    setCurrentNodeTitle(nodeTitle)
-    setChatModalOpen(true)
-  }
+    setCurrentNodeTitle(nodeTitle);
+    setChatModalOpen(true);
+  };
 
   const convertToReactFlowElements = (
     data: TreeData,
     position: XYPosition = { x: 0, y: 0 },
     depth = 0,
-    parentId?: string,
+    parentId?: string
   ): { nodes: Node[]; edges: Edge[] } => {
-    const nodes: Node[] = []
-    const edges: Edge[] = []
+    const nodes: Node[] = [];
+    const edges: Edge[] = [];
 
     // Create root node
     const rootNode: Node = {
@@ -247,49 +280,58 @@ export default function LearningTree() {
         label: data.title,
         summary: data.summary,
         isRoot: !parentId,
-        onLearnMore: data.summary ? () => handleLearnMore(data.title) : undefined,
+        onLearnMore: data.summary
+          ? () => handleLearnMore(data.title)
+          : undefined,
         parentTitle: data.parentTitle,
         parentSummary: data.parentSummary,
       },
-    }
-    nodes.push(rootNode)
+    };
+    nodes.push(rootNode);
 
     // Calculate parent node width
-    const parentWidth = calculateNodeWidth(rootNode)
+    const parentWidth = calculateNodeWidth(rootNode);
 
     // Create child nodes and edges
-    const childrenCount = data.keywords.length
+    const childrenCount = data.keywords.length;
     if (childrenCount > 0) {
       // Calculate total height needed for all children
-      const totalChildHeight = childrenCount * (nodeHeight + verticalSpacing) - verticalSpacing
-      const startY = position.y - totalChildHeight / 2
+      const totalChildHeight =
+        childrenCount * (nodeHeight + verticalSpacing) - verticalSpacing;
+      const startY = position.y - totalChildHeight / 2;
 
       data.keywords.forEach((keyword, index) => {
         let childPosition: XYPosition = {
           x: position.x + parentWidth + MIN_HORIZONTAL_SPACING,
           y: startY + index * (nodeHeight + verticalSpacing),
-        }
+        };
 
         // Check for collisions with existing nodes and resolve if needed
         if (nodesRef.current.length > 0) {
-          childPosition = resolveCollision(childPosition, nodesRef.current)
+          childPosition = resolveCollision(childPosition, nodesRef.current);
         }
 
-        const childNodeId = getNextId(rootNode.id)
+        const childNodeId = getNextId(rootNode.id);
         const childNode: Node = {
           id: childNodeId,
           type: "custom",
           position: childPosition,
           data: {
             label: keyword,
-            onGenerate: () => generateTreeForNode(childNodeId, keyword, data.title, data.summary),
+            onGenerate: () =>
+              generateTreeForNode(
+                childNodeId,
+                keyword,
+                data.title,
+                data.summary
+              ),
             isExploring: isExploring,
             parentTitle: data.title,
             parentSummary: data.summary,
           },
-        }
+        };
 
-        nodes.push(childNode)
+        nodes.push(childNode);
 
         const edge: Edge = {
           id: `edge-${rootNode.id}-${childNodeId}`,
@@ -309,14 +351,14 @@ export default function LearningTree() {
             stroke: "#9333ea",
             strokeWidth: 2,
           },
-        }
+        };
 
-        edges.push(edge)
-      })
+        edges.push(edge);
+      });
     }
 
-    return { nodes, edges }
-  }
+    return { nodes, edges };
+  };
 
   const onConnect = useCallback(
     (params: Connection) =>
@@ -337,67 +379,85 @@ export default function LearningTree() {
               strokeWidth: 2,
             },
           },
-          eds,
-        ),
+          eds
+        )
       ),
-    [setEdges],
-  )
+    [setEdges]
+  );
 
   // Function to update history (now uses useCallback and takes arguments)
   const updateHistory = useCallback(
     async (historyId: string, nodesToSave: Node[], edgesToSave: Edge[]) => {
-      if (!historyId) return // Safety check
+      if (!historyId) return; // Safety check
 
       try {
-        console.log(`Attempting to update history ${historyId}`)
+        console.log(`Attempting to update history ${historyId}`);
         const response = await fetch("/api/history/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ historyId, nodes: nodesToSave, edges: edgesToSave }),
-        })
+          body: JSON.stringify({
+            historyId,
+            nodes: nodesToSave,
+            edges: edgesToSave,
+          }),
+        });
 
         if (response.status === 400) {
-          console.log("Nodes or edges are empty, skipping update")
-          return
+          console.log("Nodes or edges are empty, skipping update");
+          return;
         }
 
         if (!response.ok) {
-          const errorBody = await response.text()
+          const errorBody = await response.text();
           if (errorBody.includes("Nodes or edges are empty")) {
-            console.log("Nodes or edges are empty, skipping update")
+            console.log("Nodes or edges are empty, skipping update");
           } else {
-            throw new Error(`Failed to update chat history: ${response.status} ${errorBody}`)
+            throw new Error(
+              `Failed to update chat history: ${response.status} ${errorBody}`
+            );
           }
         }
 
         // Update local chat history state optimistically
         setChatHistory((prev) =>
-          prev.map((item) => (item._id === historyId ? { ...item, nodes: nodesToSave, edges: edgesToSave } : item)),
-        )
-        console.log(`History ${historyId} updated successfully locally.`)
+          prev.map((item) =>
+            item._id === historyId
+              ? { ...item, nodes: nodesToSave, edges: edgesToSave }
+              : item
+          )
+        );
+        console.log(`History ${historyId} updated successfully locally.`);
       } catch (err) {
         // Make sure 'err' is typed correctly if needed, e.g., catch (err: any)
-        console.error("Error updating history:", err)
-        setError(`Failed to save changes: ${err instanceof Error ? err.message : String(err)}`)
+        console.error("Error updating history:", err);
+        setError(
+          `Failed to save changes: ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
       }
     },
-    [setChatHistory, setError],
-  ) // Added setError dependency
+    [setChatHistory, setError]
+  ); // Added setError dependency
 
-  const generateTreeForNode = async (parentNodeId: string, topic: string, parentNodeTopic: string, parentNodeSummary: string) => {
+  const generateTreeForNode = async (
+    parentNodeId: string,
+    topic: string,
+    parentNodeTopic: string,
+    parentNodeSummary: string
+  ) => {
     if (isExploring) return; // Prevent multiple explorations
     setIsExploring(true);
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
     try {
-      console.log("Generating for node:", parentNodeId)
-      console.log("Current nodes:", nodes)
-      console.log("Current edges:", edges)
+      console.log("Generating for node:", parentNodeId);
+      console.log("Current nodes:", nodes);
+      console.log("Current edges:", edges);
 
       // Find the parent node's topic by looking at the edges
 
-      
       console.log("parent node topic: ", parentNodeTopic);
       console.log("parent node summary: ", parentNodeSummary);
 
@@ -406,30 +466,29 @@ export default function LearningTree() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           topic,
           parentTopic: parentNodeTopic,
           parentSummary: parentNodeSummary,
           keepTopic: true,
         }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch data")
+        throw new Error("Failed to fetch data");
       }
 
-      const data: TreeData = await response.json()
+      const data: TreeData = await response.json();
 
-      const parentNode = nodesRef.current.find((n) => n.id === parentNodeId)
+      const parentNode = nodesRef.current.find((n) => n.id === parentNodeId);
 
-      console.log("parent node: ", parentNode)
-
+      console.log("parent node: ", parentNode);
 
       // Get the parent node's position from the ref
       const parentNodePosition = parentNode?.position;
 
       if (!parentNodePosition) {
-        throw new Error("Parent node position not found")
+        throw new Error("Parent node position not found");
       }
 
       // Convert the data to ReactFlow elements starting from parent position
@@ -441,8 +500,8 @@ export default function LearningTree() {
         },
         parentNodePosition,
         1,
-        parentNodeId,
-      )
+        parentNodeId
+      );
 
       // Update the parent node with summary and remove loading state
       const updatedParentNode = {
@@ -456,55 +515,63 @@ export default function LearningTree() {
           parentTitle: data.parentTitle,
           parentSummary: data.parentSummary,
         },
-      }
+      };
 
       // Set the nodes and edges with animation delay
       setTimeout(() => {
-        let finalNodes: Node[] = []
+        let finalNodes: Node[] = [];
         setNodes((nds) => {
-          const filteredNodes = nds.filter((n) => n.id !== parentNodeId)
-          finalNodes = [...filteredNodes, updatedParentNode, ...newNodes.filter((n) => n.id !== parentNodeId)]
-          return finalNodes
-        })
+          const filteredNodes = nds.filter((n) => n.id !== parentNodeId);
+          finalNodes = [
+            ...filteredNodes,
+            updatedParentNode,
+            ...newNodes.filter((n) => n.id !== parentNodeId),
+          ];
+          return finalNodes;
+        });
 
-        let finalEdges: Edge[] = []
+        let finalEdges: Edge[] = [];
         setEdges((eds) => {
-          finalEdges = [...eds, ...newEdges]
-          return finalEdges
-        })
+          finalEdges = [...eds, ...newEdges];
+          return finalEdges;
+        });
 
         // Update history after state updates are likely processed
         setTimeout(() => {
           if (currentHistoryId) {
-            updateHistory(currentHistoryId, finalNodes, finalEdges)
+            updateHistory(currentHistoryId, finalNodes, finalEdges);
           }
-        }, 0)
-      }, 300)
+        }, 0);
+      }, 300);
     } catch (err) {
-      console.error("Error fetching data:", err)
-      setError("Failed to generate the learning tree. Please try again.")
+      console.error("Error fetching data:", err);
+      setError("Failed to generate the learning tree. Please try again.");
       // Reset loading state on error
       setNodes((nds) =>
-        nds.map((node) => (node.id === parentNodeId ? { ...node, data: { ...node.data, isLoading: false } } : node)),
-      )
+        nds.map((node) =>
+          node.id === parentNodeId
+            ? { ...node, data: { ...node.data, isLoading: false } }
+            : node
+        )
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
       setIsExploring(false); // Reset exploration state
     }
-  }
+  };
 
   const handleGenerateTree = async () => {
     if (!topic.trim()) {
-      setError("Please enter a topic to learn about")
-      return
+      setError("Please enter a topic to learn about");
+      return;
     }
 
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
     try {
       // Reset node IDs when generating a new tree
-      resetNodeIds()
+      resetNodeIds();
 
       const response = await fetch("/api/initTree", {
         method: "POST",
@@ -512,16 +579,16 @@ export default function LearningTree() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ topic }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch data")
+        throw new Error("Failed to fetch data");
       }
 
-      const data: TreeData = await response.json()
+      const data: TreeData = await response.json();
 
       // Convert the data to ReactFlow elements
-      const { nodes, edges } = convertToReactFlowElements(data)
+      const { nodes, edges } = convertToReactFlowElements(data);
 
       // Save to chat history
       const saveResponse = await fetch("/api/history/save", {
@@ -534,118 +601,203 @@ export default function LearningTree() {
           nodes,
           edges,
         }),
-      })
+      });
 
       if (!saveResponse.ok) {
-        throw new Error("Failed to save chat history")
+        throw new Error("Failed to save chat history");
       }
 
       // Update local chat history
-      const newHistoryItem = await saveResponse.json()
-      setChatHistory((prev) => [newHistoryItem, ...prev])
-      setCurrentHistoryId(newHistoryItem._id) // Set the current history ID
+      const newHistoryItem = await saveResponse.json();
+      setChatHistory((prev) => [newHistoryItem, ...prev]);
+      setCurrentHistoryId(newHistoryItem._id); // Set the current history ID
 
       // Close modal and set the nodes and edges
-      setShowModal(false)
-      setNodes(nodes)
-      setEdges(edges)
+      setShowModal(false);
+      setNodes(nodes);
+      setEdges(edges);
     } catch (err) {
-      console.error("Error:", err)
-      setError("Failed to generate the learning tree. Please try again.")
+      console.error("Error:", err);
+      setError("Failed to generate the learning tree. Please try again.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      handleGenerateTree()
+      handleGenerateTree();
     }
-  }
+  };
 
   const loadHistoryItem = async (historyId: string) => {
     try {
-      const historyItem = chatHistory.find((item) => item._id === historyId)
-      if (!historyItem) return
+      const historyItem = chatHistory.find((item) => item._id === historyId);
+      if (!historyItem) return;
 
-      setTopic(historyItem.topic)
+      setTopic(historyItem.topic);
 
       // Add onGenerate function to unexplored nodes
       const nodesWithGenerate = historyItem.nodes.map((node) => {
         // A node is unexplored if it has no summary and is not the root node
-        const isUnexplored = !node.data.summary && !node.data.isRoot
+        const isUnexplored = !node.data.summary && !node.data.isRoot;
         return {
           ...node,
           data: {
             ...node.data,
-            onGenerate: isUnexplored ? () => generateTreeForNode(node.id, node.data.label, node.data.parentTitle, node.data.parentSummary) : undefined,
-            onLearnMore: node.data.summary ? () => handleLearnMore(node.data.label) : undefined,
+            onGenerate: isUnexplored
+              ? () =>
+                  generateTreeForNode(
+                    node.id,
+                    node.data.label,
+                    node.data.parentTitle,
+                    node.data.parentSummary
+                  )
+              : undefined,
+            onLearnMore: node.data.summary
+              ? () => handleLearnMore(node.data.label)
+              : undefined,
             isExploring: isExploring,
             parentTitle: node.data.parentTitle,
             parentSummary: node.data.parentSummary,
           },
-        }
-      })
+        };
+      });
 
-      setNodes(nodesWithGenerate)
-      setEdges(historyItem.edges)
-      setShowModal(false)
-      setCurrentHistoryId(historyItem._id) // Set the current history ID when loading
+      setNodes(nodesWithGenerate);
+      setEdges(historyItem.edges);
+      setShowModal(false);
+      setCurrentHistoryId(historyItem._id); // Set the current history ID when loading
     } catch (error) {
-      console.error("Error loading history item:", error)
-      setError("Failed to load history item")
+      console.error("Error loading history item:", error);
+      setError("Failed to load history item");
     }
-  }
+  };
 
   // useEffect to automatically update history on node/edge changes with debounce
   useEffect(() => {
     if (currentHistoryId) {
       // Nodes or edges changed while viewing a specific history item
       if (historyUpdateDebounceTimerRef.current) {
-        clearTimeout(historyUpdateDebounceTimerRef.current)
+        clearTimeout(historyUpdateDebounceTimerRef.current);
       }
-      console.log("Change detected, scheduling history update for:", currentHistoryId) // Add log
+      console.log(
+        "Change detected, scheduling history update for:",
+        currentHistoryId
+      ); // Add log
       historyUpdateDebounceTimerRef.current = setTimeout(() => {
-        console.log("Debounced timer fired. Updating history for:", currentHistoryId) // Add log
+        console.log(
+          "Debounced timer fired. Updating history for:",
+          currentHistoryId
+        ); // Add log
         // Pass the current state values and the ID
         // 'nodes' and 'edges' here will be the latest state values when the timeout executes
-        updateHistory(currentHistoryId, nodes, edges)
-      }, 1500) // Use 1.5 seconds debounce
+        updateHistory(currentHistoryId, nodes, edges);
+      }, 1500); // Use 1.5 seconds debounce
     }
 
     return () => {
       // Cleanup timer on unmount or before next run
       if (historyUpdateDebounceTimerRef.current) {
         // console.log("Cleaning up debounce timer"); // Optional log
-        clearTimeout(historyUpdateDebounceTimerRef.current)
+        clearTimeout(historyUpdateDebounceTimerRef.current);
       }
-    }
-  }, [nodes, edges, currentHistoryId, updateHistory]) // Dependencies
+    };
+  }, [nodes, edges, currentHistoryId, updateHistory]); // Dependencies
 
   // Add this function to filter chat history based on search term
-  const filteredChatHistory = chatHistory.filter((item) => item.topic.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredChatHistory = chatHistory.filter((item) =>
+    item.topic.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Add this component for the user profile section
+  const UserProfile = ({ session }: { session: any }) => {
+    return (
+      <div className="p-4 border-t border-gray-200 mt-auto">
+        <div className="flex items-center gap-3">
+          {session?.user?.image ? (
+            <Image
+              src={session.user.image}
+              alt={session.user.name || "User"}
+              width={40}
+              height={40}
+              className="rounded-full"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+              <User className="w-5 h-5 text-purple-600" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-gray-800 truncate bg-gradient-to-r from-gray-800 via-gray-800 to-transparent bg-clip-text">
+              {session.user.name}
+            </p>
+            <p className="text-sm text-gray-500 truncate bg-gradient-to-r from-gray-500 via-gray-500 to-transparent bg-clip-text">
+              {session.user.email}
+            </p>
+          </div>
+          <button
+            onClick={() => signOut()}
+            className="p-2 hover:bg-gray-100 rounded-full flex-shrink-0"
+            title="Sign out"
+          >
+            <LogOut className="w-5 h-5 text-gray-600" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Add authentication check before the main content
+  if (status === "loading") {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-800 mb-4">
+            Welcome to CogniTrail
+          </h1>
+          <p className="text-gray-600 mb-8">Please sign in to continue</p>
+          <button
+            onClick={() => signIn()}
+            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-violet-600 text-white rounded-lg 
+                      hover:from-purple-600 hover:to-violet-700 shadow-md"
+          >
+            Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Chat History Sidebar */}
       <AnimatePresence initial={false}>
         {sidebarOpen && (
-          <motion.div
-            initial={{ x: -300 }}
-            animate={{ x: 0 }}
-            exit={{ x: -300 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="w-80 h-full bg-white border-r border-gray-200 shadow-sm z-10"
-          >
+          <motion.div className="w-80 h-full bg-white border-r border-gray-200 shadow-sm z-10 flex flex-col">
             <div className="p-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-800">History</h2>
-                <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-full hover:bg-gray-100">
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-1 rounded-full hover:bg-gray-100"
+                >
                   <ChevronLeft size={20} />
                 </button>
               </div>
               <div className="mt-4 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <Search
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                  size={18}
+                />
                 <input
                   type="text"
                   placeholder="Search history..."
@@ -655,7 +807,7 @@ export default function LearningTree() {
                 />
               </div>
             </div>
-            <div className="overflow-y-auto h-[calc(100%-80px)]">
+            <div className="flex-1 overflow-y-auto h-[calc(100%-80px)]">
               {filteredChatHistory.map((item) => (
                 <motion.div
                   key={item._id}
@@ -668,13 +820,18 @@ export default function LearningTree() {
                       <Clock size={16} className="text-purple-600" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-gray-800">{item.topic}</h3>
-                      <p className="text-xs text-gray-500 mt-1">{formatDate(item.date)}</p>
+                      <h3 className="font-medium text-gray-800">
+                        {item.topic}
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formatDate(item.date)}
+                      </p>
                     </div>
                   </div>
                 </motion.div>
               ))}
             </div>
+            {session && <UserProfile session={session} />}
           </motion.div>
         )}
       </AnimatePresence>
@@ -731,7 +888,9 @@ export default function LearningTree() {
               position="top-center"
               className="bg-white/80 backdrop-blur-sm p-2 sm:p-3 rounded-lg shadow-md border border-gray-200"
             >
-              <h1 className="text-md sm:text-xl font-bold text-gray-800">CogniTrail Explorer</h1>
+              <h1 className="text-md sm:text-xl font-bold text-gray-800">
+                CogniTrail Explorer
+              </h1>
             </Panel>
             <Panel
               position="bottom-center"
@@ -778,14 +937,22 @@ export default function LearningTree() {
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
 
                 <div className="text-center mb-4 sm:mb-6">
-                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-1 sm:mb-2">Generate a CogniTrail Map</h2>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-1 sm:mb-2">
+                    Generate a CogniTrail Map
+                  </h2>
                   <p className="text-sm sm:text-base text-gray-600">
-                    Enter a topic you want to explore, and have fun going down the rabbit hole!
+                    Enter a topic you want to explore, and have fun going down
+                    the rabbit hole!
                   </p>
                 </div>
 
@@ -812,12 +979,16 @@ export default function LearningTree() {
                     {loading ? (
                       <>
                         <div className="animate-spin h-4 w-4 sm:h-5 sm:w-5 border-2 border-white border-t-transparent rounded-full" />
-                        <span className="text-sm sm:text-base">Generating...</span>
+                        <span className="text-sm sm:text-base">
+                          Generating...
+                        </span>
                       </>
                     ) : (
                       <>
                         <Zap size={16} className="sm:w-5 sm:h-5" />
-                        <span className="text-sm sm:text-base">Generate Learning Tree</span>
+                        <span className="text-sm sm:text-base">
+                          Generate Learning Tree
+                        </span>
                       </>
                     )}
                   </motion.button>
@@ -851,10 +1022,14 @@ export default function LearningTree() {
         {/* Chat Modal */}
         <AnimatePresence>
           {chatModalOpen && (
-            <ChatModal isOpen={chatModalOpen} onClose={() => setChatModalOpen(false)} nodeTitle={currentNodeTitle} />
+            <ChatModal
+              isOpen={chatModalOpen}
+              onClose={() => setChatModalOpen(false)}
+              nodeTitle={currentNodeTitle}
+            />
           )}
         </AnimatePresence>
       </div>
     </div>
-  )
+  );
 }

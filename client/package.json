@@ -23,6 +23,7 @@
     "mongodb": "^6.15.0",
     "mongoose": "^8.13.2",
     "next": "15.3.0",
+    "next-auth": "^4.24.11",
     "partial-json": "^0.1.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

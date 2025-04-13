@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const nodeSchema = new mongoose.Schema({
   id: {
@@ -24,7 +24,7 @@ const nodeSchema = new mongoose.Schema({
       parentSummary: String,
     },
     required: true,
-  }
+  },
 });
 
 const edgeSchema = new mongoose.Schema({
@@ -60,16 +60,17 @@ const edgeSchema = new mongoose.Schema({
   style: {
     type: Object,
   },
-}); 
+});
 
-const chatHistorySchema = new mongoose.Schema({
+const ChatHistorySchema = new mongoose.Schema({
+  userId: {
+    type: String,
+    required: true,
+    index: true,
+  },
   topic: {
     type: String,
     required: true,
-  },
-  date: {
-    type: Date,
-    default: Date.now,
   },
   nodes: {
     type: [nodeSchema],
@@ -79,6 +80,14 @@ const chatHistorySchema = new mongoose.Schema({
     type: [edgeSchema],
     required: true,
   },
+  date: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
-export default mongoose.models.ChatHistory || mongoose.model('ChatHistory', chatHistorySchema); 
+const ChatHistory =
+  mongoose.models.ChatHistory ||
+  mongoose.model("ChatHistory", ChatHistorySchema);
+
+export default ChatHistory;
